@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: create
     open-in-view: false
     properties:
       hibernate:
@@ -34,14 +34,11 @@ springdoc:
     tags-sorter: alpha
     operations-sorter: alpha
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
-    health:
-      show-details: always
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-to-a-256-bit-secret-in-production}
+    access-token-expiration: 900000
+    refresh-token-expiration: 604800000
 
 ---
 spring:

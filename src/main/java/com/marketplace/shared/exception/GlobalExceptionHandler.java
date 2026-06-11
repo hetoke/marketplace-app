@@ -6,10 +6,15 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -56,6 +61,78 @@ public class GlobalExceptionHandler {
 				fieldErrors
 		);
 		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex,
+			HttpServletRequest request) {
+		log.debug("Malformed request body at {}", request.getRequestURI(), ex);
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.BAD_REQUEST.value(),
+				HttpStatus.BAD_REQUEST.getReasonPhrase(),
+				"Malformed request body",
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex,
+			HttpServletRequest request) {
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.BAD_REQUEST.value(),
+				HttpStatus.BAD_REQUEST.getReasonPhrase(),
+				"Parameter '" + ex.getName() + "' must be of type " + ex.getRequiredType().getSimpleName(),
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(MissingServletRequestParameterException.class)
+	public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex,
+			HttpServletRequest request) {
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.BAD_REQUEST.value(),
+				HttpStatus.BAD_REQUEST.getReasonPhrase(),
+				"Required parameter '" + ex.getParameterName() + "' is missing",
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.badRequest().body(body);
+	}
+
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	public ResponseEntity<ErrorResponse> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex,
+			HttpServletRequest request) {
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.METHOD_NOT_ALLOWED.value(),
+				HttpStatus.METHOD_NOT_ALLOWED.getReasonPhrase(),
+				"Method " + ex.getMethod() + " not allowed for " + request.getRequestURI(),
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
+	}
+
+	@ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+	public ResponseEntity<ErrorResponse> handleUnsupportedMediaType(
+			org.springframework.web.HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
+		log.debug("Unsupported media type at {}", request.getRequestURI(), ex);
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+				HttpStatus.UNSUPPORTED_MEDIA_TYPE.getReasonPhrase(),
+				"Expected Content-Type: application/json",
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
 	}
 
 	@ExceptionHandler(Exception.class)
