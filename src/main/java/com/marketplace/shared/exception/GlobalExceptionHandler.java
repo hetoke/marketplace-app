@@ -47,6 +47,19 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.badRequest().body(body);
 	}
 
+	@ExceptionHandler(AccessDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+		ErrorResponse body = new ErrorResponse(
+				HttpStatus.FORBIDDEN.value(),
+				HttpStatus.FORBIDDEN.getReasonPhrase(),
+				ex.getMessage(),
+				request.getRequestURI(),
+				Instant.now(),
+				null
+		);
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
 		List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()

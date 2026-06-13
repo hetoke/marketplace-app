@@ -39,6 +39,9 @@ app:
     secret: ${JWT_SECRET:change-this-to-a-256-bit-secret-in-production}
     access-token-expiration: 900000
     refresh-token-expiration: 604800000
+  product:
+    default-page-size: 20
+    max-page-size: 100
 
 ---
 spring:

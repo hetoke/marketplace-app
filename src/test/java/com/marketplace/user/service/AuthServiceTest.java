@@ -260,6 +260,26 @@ class AuthServiceTest {
 				.hasMessage("Invalid email or password");
 	}
 
+	@Test
+	void login_unverifiedEmail_throwsBusinessException() {
+		LoginRequest request = new LoginRequest("test@test.com", "password123");
+
+		User user = new User();
+		user.setId(UUID.randomUUID());
+		user.setEmail("test@test.com");
+		user.setPasswordHash("encoded_password");
+		user.setVerified(false);
+
+		when(userRepository.findByEmail("test@test.com")).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("password123", "encoded_password")).thenReturn(true);
+
+		assertThatThrownBy(() -> authService.login(request))
+				.isInstanceOf(BusinessException.class)
+				.hasMessage("Please verify your email before logging in");
+
+		verify(refreshTokenRepository, never()).save(any());
+	}
+
 	// ==================== REFRESH TOKEN ====================
 
 	@Test

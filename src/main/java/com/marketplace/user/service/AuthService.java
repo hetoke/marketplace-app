@@ -86,6 +86,10 @@ public class AuthService {
 			throw new BusinessException("Invalid email or password");
 		}
 
+		if (!user.isVerified()) {
+			throw new BusinessException("Please verify your email before logging in");
+		}
+
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
 
