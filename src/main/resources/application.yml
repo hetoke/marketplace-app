@@ -36,12 +36,20 @@ springdoc:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:change-this-to-a-256-bit-secret-in-production}
+    access-secret: ${JWT_ACCESS_SECRET:change-this-to-a-256-bit-access-secret-in-production}
+    refresh-secret: ${JWT_REFRESH_SECRET:change-this-to-a-256-bit-refresh-secret-in-production}
     access-token-expiration: 900000
     refresh-token-expiration: 604800000
   product:
     default-page-size: 20
     max-page-size: 100
+  supabase:
+    project-url: ${SUPABASE_PROJECT_URL:https://placeholder.supabase.co}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:placeholder}
+    bucket-name: ${SUPABASE_BUCKET_NAME:marketplace-images}
+  image-sync:
+    enabled: ${IMAGE_SYNC_ENABLED:true}
+    fixed-delay: ${IMAGE_SYNC_FIXED_DELAY:3600000}
 
 ---
 spring:
