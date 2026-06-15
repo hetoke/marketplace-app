@@ -45,7 +45,7 @@ class AuthControllerTest {
 	}
 
 	private UserResponse createTestUserResponse() {
-		return new UserResponse("uuid-123", "test@test.com", "Test User",
+		return new UserResponse("uuid-123", "test@test.com", "Test User", null,
 				User.Role.BUYER, false, User.AuthenticationType.LOCAL, null);
 	}
 
@@ -70,7 +70,7 @@ class AuthControllerTest {
 
 	@Test
 	void register_roleSeller_success() throws Exception {
-		UserResponse sellerResponse = new UserResponse("uuid-456", "seller@test.com", "Seller User",
+		UserResponse sellerResponse = new UserResponse("uuid-456", "seller@test.com", "Seller User", null,
 				User.Role.SELLER, false, User.AuthenticationType.LOCAL, null);
 		when(authService.register(any())).thenReturn(sellerResponse);
 

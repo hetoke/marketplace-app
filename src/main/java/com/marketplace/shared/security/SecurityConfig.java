@@ -38,7 +38,7 @@ public class SecurityConfig {
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/api/v1/auth/**").permitAll()
 						.requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**", "/api/v1/images/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/products/**").hasRole("SELLER")
 						.requestMatchers(HttpMethod.PUT, "/api/v1/products/**").hasRole("SELLER")
 						.requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasRole("SELLER")

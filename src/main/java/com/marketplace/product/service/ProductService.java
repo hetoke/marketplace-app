@@ -1,5 +1,7 @@
 package com.marketplace.product.service;
 
+import com.marketplace.image.model.EntityType;
+import com.marketplace.image.service.ImageService;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
@@ -25,13 +27,16 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
+    private final ImageService imageService;
 
     public ProductService(ProductRepository productRepository,
                           CategoryRepository categoryRepository,
-                          ProductImageRepository productImageRepository) {
+                          ProductImageRepository productImageRepository,
+                          ImageService imageService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productImageRepository = productImageRepository;
+        this.imageService = imageService;
     }
 
     @Transactional
@@ -80,6 +85,7 @@ public class ProductService {
 		if (!product.getSellerId().toString().equals(sellerId)) {
 			throw new AccessDeniedException("You can only delete your own products");
 		}
+        imageService.deleteImagesByEntity(EntityType.PRODUCT, productId);
         productRepository.delete(product);
     }
 

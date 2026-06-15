@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.marketplace.image.service.ImageService;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
@@ -44,6 +45,9 @@ class ProductServiceTest {
 
 	@Mock
 	private ProductImageRepository productImageRepository;
+
+	@Mock
+	private ImageService imageService;
 
 	@InjectMocks
 	private ProductService productService;

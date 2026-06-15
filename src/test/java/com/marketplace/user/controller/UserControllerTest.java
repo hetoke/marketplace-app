@@ -53,7 +53,7 @@ class UserControllerTest {
 	}
 
 	private UserResponse createTestUserResponse() {
-		return new UserResponse(UUID.randomUUID().toString(), "test@test.com", "Test User",
+		return new UserResponse(UUID.randomUUID().toString(), "test@test.com", "Test User", null,
 				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
 	}
 
@@ -93,7 +93,7 @@ class UserControllerTest {
 	@Test
 	void updateProfile_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "Updated Name",
+				UUID.randomUUID().toString(), "test@test.com", "Updated Name", null,
 				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
@@ -108,7 +108,7 @@ class UserControllerTest {
 	@Test
 	void updateProfile_displayNameLowerBound1char_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "A",
+				UUID.randomUUID().toString(), "test@test.com", "A", null,
 				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
@@ -123,7 +123,7 @@ class UserControllerTest {
 	void updateProfile_displayNameUpperBound255chars_success() throws Exception {
 		String name255 = "A".repeat(255);
 		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", name255,
+				UUID.randomUUID().toString(), "test@test.com", name255, null,
 				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
@@ -159,7 +159,7 @@ class UserControllerTest {
 	@Test
 	void updateProfile_validProfilePictureUrl_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "Test User",
+				UUID.randomUUID().toString(), "test@test.com", "Test User", null,
 				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
