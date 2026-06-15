@@ -7,12 +7,16 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.jwt")
 public class JwtProperties {
 
-	private String secret;
+	private String accessSecret;
+	private String refreshSecret;
 	private long accessTokenExpiration;
 	private long refreshTokenExpiration;
 
-	public String getSecret() { return secret; }
-	public void setSecret(String secret) { this.secret = secret; }
+	public String getAccessSecret() { return accessSecret; }
+	public void setAccessSecret(String accessSecret) { this.accessSecret = accessSecret; }
+
+	public String getRefreshSecret() { return refreshSecret; }
+	public void setRefreshSecret(String refreshSecret) { this.refreshSecret = refreshSecret; }
 
 	public long getAccessTokenExpiration() { return accessTokenExpiration; }
 	public void setAccessTokenExpiration(long accessTokenExpiration) { this.accessTokenExpiration = accessTokenExpiration; }

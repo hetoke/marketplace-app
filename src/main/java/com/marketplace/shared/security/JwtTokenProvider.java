@@ -19,12 +19,15 @@ public class JwtTokenProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 	private final JwtProperties jwtProperties;
-	private final SecretKey key;
+	private final SecretKey accessKey;
+	private final SecretKey refreshKey;
 
 	public JwtTokenProvider(JwtProperties jwtProperties) {
 		this.jwtProperties = jwtProperties;
-		this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-				java.util.Base64.getEncoder().encodeToString(jwtProperties.getSecret().getBytes())));
+		this.accessKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
+				java.util.Base64.getEncoder().encodeToString(jwtProperties.getAccessSecret().getBytes())));
+		this.refreshKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
+				java.util.Base64.getEncoder().encodeToString(jwtProperties.getRefreshSecret().getBytes())));
 	}
 
 	public String generateAccessToken(String userId, String email, String role) {
@@ -37,7 +40,7 @@ public class JwtTokenProvider {
 				.claim("role", role)
 				.issuedAt(now)
 				.expiration(expiry)
-				.signWith(key)
+				.signWith(accessKey)
 				.compact();
 	}
 
@@ -49,15 +52,16 @@ public class JwtTokenProvider {
 				.subject(userId)
 				.issuedAt(now)
 				.expiration(expiry)
-				.signWith(key)
+				.signWith(refreshKey)
 				.compact();
 	}
 
-	public String getUserIdFromToken(String token) {
-		return parseClaims(token).getSubject();
+	public String getUserIdFromToken(String token, TokenType type) {
+		return parseClaims(token, type).getSubject();
 	}
 
-	public boolean validateToken(String token) {
+	public boolean validateToken(String token, TokenType type) {
+		SecretKey key = (type == TokenType.ACCESS) ? accessKey : refreshKey;
 		try {
 			Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
 			return true;
@@ -75,7 +79,8 @@ public class JwtTokenProvider {
 		return false;
 	}
 
-	private Claims parseClaims(String token) {
+	private Claims parseClaims(String token, TokenType type) {
+		SecretKey key = (type == TokenType.ACCESS) ? accessKey : refreshKey;
 		return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
 	}
 }
