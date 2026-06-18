@@ -17,7 +17,6 @@ import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.service.ProductService;
 import com.marketplace.shared.dto.PageResponse;
 import com.marketplace.shared.exception.AccessDeniedException;
-import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.GlobalExceptionHandler;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;

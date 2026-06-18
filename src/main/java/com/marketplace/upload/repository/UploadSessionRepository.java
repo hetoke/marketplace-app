@@ -1,0 +1,15 @@
+package com.marketplace.upload.repository;
+
+import com.marketplace.image.model.EntityType;
+import com.marketplace.upload.model.UploadSession;
+import com.marketplace.upload.model.UploadStatus;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface UploadSessionRepository extends JpaRepository<UploadSession, UUID> {
+
+    Optional<UploadSession> findByStoragePathAndStatus(String storagePath, UploadStatus status);
+
+    long countByEntityTypeAndEntityIdAndStatus(EntityType entityType, UUID entityId, UploadStatus status);
+}

@@ -10,7 +10,6 @@ public record UserResponse(
 		String profilePictureUrl,
 		User.Role role,
 		boolean isVerified,
-		User.AuthenticationType authenticationType,
 		Instant createdAt
 ) {
 	public static UserResponse from(User user) {
@@ -21,7 +20,6 @@ public record UserResponse(
 				user.getProfilePictureUrl(),
 				user.getRole(),
 				user.isVerified(),
-				user.getAuthenticationType(),
 				user.getCreatedAt()
 		);
 	}

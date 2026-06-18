@@ -41,6 +41,7 @@ class UserControllerTest {
 	private UserController userController;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final String userId = UUID.randomUUID().toString();
 
 	@BeforeEach
 	void setUp() {
@@ -49,12 +50,12 @@ class UserControllerTest {
 				.build();
 
 		SecurityContextHolder.getContext().setAuthentication(
-				new UsernamePasswordAuthenticationToken("test-user-id", null, java.util.List.of()));
+				new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of()));
 	}
 
 	private UserResponse createTestUserResponse() {
 		return new UserResponse(UUID.randomUUID().toString(), "test@test.com", "Test User", null,
-				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
+				User.Role.BUYER, true, null);
 	}
 
 	// ==================== GET PROFILE ====================
@@ -62,7 +63,7 @@ class UserControllerTest {
 	@Test
 	void getProfile_success() throws Exception {
 		UserResponse userResponse = createTestUserResponse();
-		when(userService.getProfile("test-user-id")).thenReturn(userResponse);
+		when(userService.getProfile(userId)).thenReturn(userResponse);
 
 		mockMvc.perform(get("/api/v1/users/profile"))
 				.andExpect(status().isOk())
@@ -72,8 +73,8 @@ class UserControllerTest {
 
 	@Test
 	void getProfile_notFound_returns404() throws Exception {
-		when(userService.getProfile("test-user-id"))
-				.thenThrow(new ResourceNotFoundException("User", "id", "test-user-id"));
+		when(userService.getProfile(userId))
+				.thenThrow(new ResourceNotFoundException("User", "id", userId));
 
 		mockMvc.perform(get("/api/v1/users/profile"))
 				.andExpect(status().isNotFound());
@@ -94,7 +95,7 @@ class UserControllerTest {
 	void updateProfile_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", "Updated Name", null,
-				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
+				User.Role.BUYER, true, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -109,7 +110,7 @@ class UserControllerTest {
 	void updateProfile_displayNameLowerBound1char_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", "A", null,
-				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
+				User.Role.BUYER, true, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -124,13 +125,13 @@ class UserControllerTest {
 		String name255 = "A".repeat(255);
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", name255, null,
-				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
+				User.Role.BUYER, true, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
-								new UpdateBody(name255, null))))
+								new UpdateBody(name255))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.displayName").value(name255));
 	}
@@ -150,33 +151,7 @@ class UserControllerTest {
 		mockMvc.perform(put("/api/v1/users/profile")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
-								new UpdateBody(name256, null))))
-				.andExpect(status().isBadRequest());
-	}
-
-	// --- ProfilePictureUrl Range: max=512 ---
-
-	@Test
-	void updateProfile_validProfilePictureUrl_success() throws Exception {
-		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "Test User", null,
-				User.Role.BUYER, true, User.AuthenticationType.LOCAL, null);
-		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
-
-		mockMvc.perform(put("/api/v1/users/profile")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"profilePictureUrl\":\"https://example.com/pic.jpg\"}"))
-				.andExpect(status().isOk());
-	}
-
-	@Test
-	void updateProfile_profilePictureUrlAboveUpperBound513chars_returns400() throws Exception {
-		String url513 = "a".repeat(513);
-
-		mockMvc.perform(put("/api/v1/users/profile")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(objectMapper.writeValueAsString(
-								new UpdateBody(null, url513))))
+								new UpdateBody(name256))))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -198,7 +173,7 @@ class UserControllerTest {
 	@Test
 	void updateProfile_notFound_returns404() throws Exception {
 		when(userService.updateProfile(anyString(), any()))
-				.thenThrow(new ResourceNotFoundException("User", "id", "test-user-id"));
+				.thenThrow(new ResourceNotFoundException("User", "id", userId));
 
 		mockMvc.perform(put("/api/v1/users/profile")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -290,7 +265,7 @@ class UserControllerTest {
 
 	@Test
 	void changePassword_notFound_returns404() throws Exception {
-		doThrow(new ResourceNotFoundException("User", "id", "test-user-id"))
+		doThrow(new ResourceNotFoundException("User", "id", userId))
 				.when(userService).changePassword(anyString(), any());
 
 		mockMvc.perform(put("/api/v1/users/profile/password")
@@ -338,6 +313,6 @@ class UserControllerTest {
 				.andExpect(status().isMethodNotAllowed());
 	}
 
-	private record UpdateBody(String displayName, String profilePictureUrl) {}
+	private record UpdateBody(String displayName) {}
 	private record ChangePassBody(String currentPassword, String newPassword) {}
 }

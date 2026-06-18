@@ -1,0 +1,151 @@
+package com.marketplace.upload.controller;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.marketplace.shared.exception.AccessDeniedException;
+import com.marketplace.shared.exception.BusinessException;
+import com.marketplace.shared.exception.GlobalExceptionHandler;
+import com.marketplace.shared.exception.ResourceNotFoundException;
+import com.marketplace.upload.dto.UploadResponse;
+import com.marketplace.upload.service.UploadService;
+import java.time.Instant;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+@ExtendWith(MockitoExtension.class)
+class UploadControllerTest {
+
+	private MockMvc mockMvc;
+
+	@Mock
+	private UploadService uploadService;
+
+	@InjectMocks
+	private UploadController uploadController;
+
+	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final String userId = UUID.randomUUID().toString();
+
+	@BeforeEach
+	void setUp() {
+		mockMvc = MockMvcBuilders.standaloneSetup(uploadController)
+				.setControllerAdvice(new GlobalExceptionHandler())
+				.build();
+
+		SecurityContextHolder.getContext().setAuthentication(
+				new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of()));
+	}
+
+	// ==================== USER AVATAR ====================
+
+	@Test
+	void requestUserAvatar_success() throws Exception {
+		UploadResponse response = new UploadResponse(
+				UUID.randomUUID(),
+				"https://supabase.co/signed-url",
+				"token-abc",
+				Instant.now().plusSeconds(7200));
+
+		when(uploadService.requestUserUpload(anyString(), any())).thenReturn(response);
+
+		mockMvc.perform(post("/api/v1/users/avatar")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileName\":\"avatar.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.message").value("Upload session created"))
+				.andExpect(jsonPath("$.data.uploadUrl").value("https://supabase.co/signed-url"))
+				.andExpect(jsonPath("$.data.token").value("token-abc"));
+	}
+
+	@Test
+	void requestUserAvatar_fileTypeNotAllowed_returns400() throws Exception {
+		when(uploadService.requestUserUpload(anyString(), any()))
+				.thenThrow(new BusinessException("File type not allowed: application/pdf"));
+
+		mockMvc.perform(post("/api/v1/users/avatar")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileName\":\"doc.pdf\",\"fileSize\":1024,\"contentType\":\"application/pdf\"}"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("File type not allowed: application/pdf"));
+	}
+
+	@Test
+	void requestUserAvatar_missingFileName_returns400() throws Exception {
+		mockMvc.perform(post("/api/v1/users/avatar")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+				.andExpect(status().isBadRequest());
+	}
+
+	// ==================== PRODUCT IMAGES ====================
+
+	@Test
+	void requestProductImages_success() throws Exception {
+		UploadResponse response = new UploadResponse(
+				UUID.randomUUID(),
+				"https://supabase.co/signed-url",
+				"token-456",
+				Instant.now().plusSeconds(7200));
+
+		UUID productId = UUID.randomUUID();
+		when(uploadService.requestProductUpload(anyString(), eq(productId), any())).thenReturn(response);
+
+		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileName\":\"img.jpg\",\"fileSize\":2048,\"contentType\":\"image/png\"}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.message").value("Upload session created"))
+				.andExpect(jsonPath("$.data.token").value("token-456"));
+	}
+
+	@Test
+	void requestProductImages_productNotFound_returns404() throws Exception {
+		UUID productId = UUID.randomUUID();
+		when(uploadService.requestProductUpload(anyString(), eq(productId), any()))
+				.thenThrow(new ResourceNotFoundException("Product", "id", productId));
+
+		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileName\":\"img.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void requestProductImages_notSeller_returns403() throws Exception {
+		UUID productId = UUID.randomUUID();
+		when(uploadService.requestProductUpload(anyString(), eq(productId), any()))
+				.thenThrow(new AccessDeniedException("You can only upload images for your own products"));
+
+		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileName\":\"img.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+				.andExpect(status().isForbidden());
+	}
+
+	@Test
+	void requestProductImages_missingFileName_returns400() throws Exception {
+		UUID productId = UUID.randomUUID();
+
+		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+				.andExpect(status().isBadRequest());
+	}
+}

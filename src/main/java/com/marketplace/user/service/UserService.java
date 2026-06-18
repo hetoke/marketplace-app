@@ -38,9 +38,6 @@ public class UserService {
 		if (request.displayName() != null) {
 			user.setDisplayName(request.displayName());
 		}
-		if (request.profilePictureUrl() != null) {
-			user.setProfilePictureUrl(request.profilePictureUrl());
-		}
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
 

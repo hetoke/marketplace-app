@@ -1,12 +1,16 @@
 package com.marketplace.image.storage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -25,6 +29,43 @@ public class SupabaseStorageClient {
     public SupabaseStorageClient(SupabaseStorageProperties properties) {
         this.properties = properties;
         this.httpClient = HttpClient.newHttpClient();
+    }
+
+    public record SignedUploadUrl(String uploadUrl, String token, Instant expiresAt) {}
+
+    public SignedUploadUrl createSignedUploadUrl(String path, int expiresInHours) {
+        try {
+            String url = properties.projectUrl()
+                    + "/storage/v1/object/sign/"
+                    + properties.bucketName()
+                    + "/"
+                    + path;
+
+            String body = objectMapper.writeValueAsString(
+                    Map.of("expiresIn", expiresInHours * 3600));
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Content-Type", "application/json")
+                    .header("apikey", properties.serviceRoleKey())
+                    .header("Authorization", "Bearer " + properties.serviceRoleKey())
+                    .header("x-upsert", "true")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            JsonNode json = objectMapper.readTree(response.body());
+
+            String signedUrl = json.get("signedURL").asText();
+            String token = json.get("token").asText();
+            Instant expiresAt = Instant.now().plus(expiresInHours, ChronoUnit.HOURS);
+
+            String fullUrl = properties.projectUrl() + signedUrl;
+            return new SignedUploadUrl(fullUrl, token, expiresAt);
+        } catch (Exception e) {
+            log.error("Failed to create signed upload URL for path: {}", path, e);
+            throw new RuntimeException("Failed to create signed upload URL", e);
+        }
     }
 
     public List<StorageFile> listFiles(String prefix, int limit, int offset) {

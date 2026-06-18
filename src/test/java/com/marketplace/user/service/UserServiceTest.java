@@ -85,7 +85,7 @@ class UserServiceTest {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UpdateProfileRequest request = new UpdateProfileRequest("A", null);
+		UpdateProfileRequest request = new UpdateProfileRequest("A");
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
@@ -100,26 +100,11 @@ class UserServiceTest {
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		String name255 = "A".repeat(255);
-		UpdateProfileRequest request = new UpdateProfileRequest(name255, null);
+		UpdateProfileRequest request = new UpdateProfileRequest(name255);
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
 		assertThat(response.displayName()).isEqualTo(name255);
-		verify(userRepository).save(user);
-	}
-
-	// --- ProfilePictureUrl: positive ---
-
-	@Test
-	void updateProfile_validProfilePictureUrl_success() {
-		User user = createTestUser();
-		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
-
-		UpdateProfileRequest request = new UpdateProfileRequest(null, "https://example.com/pic.jpg");
-
-		UserResponse response = userService.updateProfile(user.getId().toString(), request);
-
 		verify(userRepository).save(user);
 	}
 
@@ -131,7 +116,7 @@ class UserServiceTest {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UpdateProfileRequest request = new UpdateProfileRequest(null, null);
+		UpdateProfileRequest request = new UpdateProfileRequest(null);
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
@@ -144,7 +129,7 @@ class UserServiceTest {
 		UUID randomId = UUID.randomUUID();
 		when(userRepository.findById(randomId)).thenReturn(Optional.empty());
 
-		UpdateProfileRequest request = new UpdateProfileRequest("New Name", null);
+		UpdateProfileRequest request = new UpdateProfileRequest("New Name");
 
 		assertThatThrownBy(() -> userService.updateProfile(randomId.toString(), request))
 				.isInstanceOf(ResourceNotFoundException.class);

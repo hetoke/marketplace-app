@@ -54,7 +54,7 @@
 ## 💰 Payment & Financial
 
 ### Payment Requirements
-- **Multiple payment methods**: Credit Card (mock), PayPal Sandbox
+- **Multiple payment methods**: Credit Card (mock), VNPay Sandbox
 - Payment transaction history
 - Refund request management
 

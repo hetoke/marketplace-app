@@ -1,13 +1,10 @@
 package com.marketplace.image.service;
 
-import com.marketplace.image.dto.ImageRequest;
 import com.marketplace.image.dto.ImageResponse;
 import com.marketplace.image.model.EntityType;
 import com.marketplace.image.model.Image;
 import com.marketplace.image.repository.ImageRepository;
 import com.marketplace.image.storage.SupabaseStorageClient;
-import com.marketplace.product.model.Product;
-import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.net.URI;
@@ -25,45 +22,11 @@ public class ImageService {
 
     private final ImageRepository imageRepository;
     private final SupabaseStorageClient storageClient;
-    private final ProductRepository productRepository;
 
     public ImageService(ImageRepository imageRepository,
-                        SupabaseStorageClient storageClient,
-                        ProductRepository productRepository) {
+                        SupabaseStorageClient storageClient) {
         this.imageRepository = imageRepository;
         this.storageClient = storageClient;
-        this.productRepository = productRepository;
-    }
-
-    @Transactional
-    public ImageResponse saveImage(String uploadedById, ImageRequest request) {
-        validateOwnership(uploadedById, request);
-        Image image = new Image();
-        image.setFileUrl(request.fileUrl());
-        image.setFileName(request.fileName());
-        image.setFileSize(request.fileSize());
-        image.setContentType(request.contentType());
-        image.setEntityType(request.entityType());
-        image.setEntityId(request.entityId());
-        image.setUploadedBy(UUID.fromString(uploadedById));
-        imageRepository.save(image);
-        return ImageResponse.from(image);
-    }
-
-    private void validateOwnership(String userId, ImageRequest request) {
-        UUID userUuid = UUID.fromString(userId);
-
-        if (request.entityType() == EntityType.USER) {
-            if (!request.entityId().equals(userUuid)) {
-                throw new AccessDeniedException("You can only upload images for yourself");
-            }
-        } else if (request.entityType() == EntityType.PRODUCT) {
-            Product product = productRepository.findById(request.entityId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", request.entityId()));
-            if (!product.getSellerId().equals(userUuid)) {
-                throw new AccessDeniedException("You can only upload images for your own products");
-            }
-        }
     }
 
     @Transactional(readOnly = true)

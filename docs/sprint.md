@@ -249,7 +249,7 @@ Handle payment lifecycle.
 
 #### Payments
 - Mock Credit Card
-- PayPal Sandbox
+- VNPay Sandbox
 
 #### Refunds
 - Request refund

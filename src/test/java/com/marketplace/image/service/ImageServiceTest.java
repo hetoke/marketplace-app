@@ -3,20 +3,16 @@ package com.marketplace.image.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.marketplace.image.dto.ImageRequest;
 import com.marketplace.image.dto.ImageResponse;
 import com.marketplace.image.model.EntityType;
 import com.marketplace.image.model.Image;
 import com.marketplace.image.repository.ImageRepository;
 import com.marketplace.image.storage.SupabaseStorageClient;
-import com.marketplace.product.model.Product;
-import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.util.List;
@@ -37,114 +33,11 @@ class ImageServiceTest {
 	@Mock
 	private SupabaseStorageClient storageClient;
 
-	@Mock
-	private ProductRepository productRepository;
-
 	@InjectMocks
 	private ImageService imageService;
 
 	private static final UUID USER_ID = UUID.randomUUID();
-	private static final UUID PRODUCT_ID = UUID.randomUUID();
 	private static final UUID IMAGE_ID = UUID.randomUUID();
-
-	// ==================== SAVE IMAGE ====================
-
-	// --- Happy paths ---
-
-	@Test
-	void saveImage_userType_selfOwnership_success() {
-		ImageRequest request = new ImageRequest(
-				"https://supabase.co/storage/v1/object/public/marketplace-images/user1/photo.jpg",
-				"photo.jpg", 1024L, "image/jpeg", EntityType.USER, USER_ID);
-
-		when(imageRepository.save(any(Image.class))).thenAnswer(inv -> {
-			Image img = inv.getArgument(0);
-			img.setId(IMAGE_ID);
-			return img;
-		});
-
-		ImageResponse response = imageService.saveImage(USER_ID.toString(), request);
-
-		assertThat(response.fileUrl()).contains("photo.jpg");
-		assertThat(response.entityType()).isEqualTo(EntityType.USER);
-		assertThat(response.uploadedBy()).isEqualTo(USER_ID.toString());
-		verify(imageRepository).save(any(Image.class));
-	}
-
-	@Test
-	void saveImage_productType_sellerOwnsProduct_success() {
-		Product product = new Product();
-		product.setId(PRODUCT_ID);
-		product.setSellerId(USER_ID);
-
-		ImageRequest request = new ImageRequest(
-				"https://supabase.co/storage/v1/object/public/marketplace-images/prod1/img.jpg",
-				"img.jpg", 2048L, "image/png", EntityType.PRODUCT, PRODUCT_ID);
-
-		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
-		when(imageRepository.save(any(Image.class))).thenAnswer(inv -> {
-			Image img = inv.getArgument(0);
-			img.setId(IMAGE_ID);
-			return img;
-		});
-
-		ImageResponse response = imageService.saveImage(USER_ID.toString(), request);
-
-		assertThat(response.entityType()).isEqualTo(EntityType.PRODUCT);
-		verify(productRepository).findById(PRODUCT_ID);
-		verify(imageRepository).save(any(Image.class));
-	}
-
-	// --- Failure cases ---
-
-	@Test
-	void saveImage_userType_notSelf_throwsAccessDenied() {
-		UUID otherUserId = UUID.randomUUID();
-		ImageRequest request = new ImageRequest(
-				"https://supabase.co/storage/v1/object/public/marketplace-images/user1/photo.jpg",
-				"photo.jpg", 1024L, "image/jpeg", EntityType.USER, otherUserId);
-
-		assertThatThrownBy(() -> imageService.saveImage(USER_ID.toString(), request))
-				.isInstanceOf(AccessDeniedException.class)
-				.hasMessage("You can only upload images for yourself");
-
-		verify(imageRepository, never()).save(any());
-	}
-
-	@Test
-	void saveImage_productType_notSeller_throwsAccessDenied() {
-		UUID otherSeller = UUID.randomUUID();
-		Product product = new Product();
-		product.setId(PRODUCT_ID);
-		product.setSellerId(otherSeller);
-
-		ImageRequest request = new ImageRequest(
-				"https://supabase.co/storage/v1/object/public/marketplace-images/prod1/img.jpg",
-				"img.jpg", 2048L, "image/png", EntityType.PRODUCT, PRODUCT_ID);
-
-		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
-
-		assertThatThrownBy(() -> imageService.saveImage(USER_ID.toString(), request))
-				.isInstanceOf(AccessDeniedException.class)
-				.hasMessage("You can only upload images for your own products");
-
-		verify(imageRepository, never()).save(any());
-	}
-
-	@Test
-	void saveImage_productNotFound_throwsResourceNotFound() {
-		ImageRequest request = new ImageRequest(
-				"https://supabase.co/storage/v1/object/public/marketplace-images/prod1/img.jpg",
-				"img.jpg", 2048L, "image/png", EntityType.PRODUCT, PRODUCT_ID);
-
-		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.empty());
-
-		assertThatThrownBy(() -> imageService.saveImage(USER_ID.toString(), request))
-				.isInstanceOf(ResourceNotFoundException.class)
-				.hasMessageContaining("Product");
-
-		verify(imageRepository, never()).save(any());
-	}
 
 	// ==================== GET IMAGES ====================
 

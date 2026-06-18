@@ -17,5 +17,7 @@ public interface ImageRepository extends JpaRepository<Image, UUID> {
 
     Page<Image> findAllByOrderByCreatedAtAsc(Pageable pageable);
 
+    Optional<Image> findByEntityTypeAndEntityIdAndUploadedByOrderByCreatedAtAsc(EntityType entityType, UUID entityId, UUID uploadedBy);
+
     Optional<Image> findByFileUrlContaining(String fileName);
 }
