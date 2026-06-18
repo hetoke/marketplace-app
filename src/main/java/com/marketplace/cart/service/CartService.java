@@ -139,6 +139,17 @@ public class CartService {
         cartRepository.save(cart);
     }
 
+    @Transactional(readOnly = true)
+    public List<CartItem> getCartItems(String userId) {
+        UUID userUuid = UUID.fromString(userId);
+        Cart cart = cartRepository.findByUserIdAndStatus(userUuid, Cart.Status.ACTIVE)
+                .orElse(null);
+        if (cart == null) {
+            return List.of();
+        }
+        return cartItemRepository.findByCartId(cart.getId());
+    }
+
     private Cart getOrCreateActiveCart(UUID userId) {
         return cartRepository.findByUserIdAndStatus(userId, Cart.Status.ACTIVE)
                 .orElseGet(() -> {
