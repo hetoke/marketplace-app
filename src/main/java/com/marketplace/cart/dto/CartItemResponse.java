@@ -1,0 +1,25 @@
+package com.marketplace.cart.dto;
+
+import com.marketplace.cart.model.CartItem;
+import java.math.BigDecimal;
+import java.util.UUID;
+
+public record CartItemResponse(
+        String id,
+        String productId,
+        String productName,
+        Integer quantity,
+        BigDecimal unitPrice,
+        BigDecimal totalPrice
+) {
+    public static CartItemResponse from(CartItem item, String productName) {
+        return new CartItemResponse(
+                item.getId().toString(),
+                item.getProductId().toString(),
+                productName,
+                item.getQuantity(),
+                item.getUnitPrice(),
+                item.getTotalPrice()
+        );
+    }
+}
