@@ -48,6 +48,8 @@ public class SecurityConfig {
 						.requestMatchers("/api/v1/webhooks/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/users/avatar").authenticated()
 						.requestMatchers(HttpMethod.POST, "/api/v1/products/{productId}/images").hasRole("SELLER")
+						.requestMatchers(HttpMethod.GET, "/api/v1/payments/seller/history").hasRole("SELLER")
+						.requestMatchers("/api/v1/payments/**").authenticated()
 						.requestMatchers(HttpMethod.POST, "/api/v1/orders/**").authenticated()
 						.requestMatchers(HttpMethod.GET, "/api/v1/orders/**").authenticated()
 						.requestMatchers(HttpMethod.PUT, "/api/v1/orders/**").authenticated()
