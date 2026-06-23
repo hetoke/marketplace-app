@@ -1,0 +1,57 @@
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant AuthService
+    participant PasswordEncoder
+    participant UserRepository
+    participant JwtTokenProvider
+    participant RefreshTokenRepository
+    participant Database
+
+    Client->>AuthController: POST /api/v1/auth/login<br/>{email, password}
+    AuthController->>AuthService: login(LoginRequest)
+    AuthService->>UserRepository: findByEmail(email)
+    UserRepository->>Database: SELECT * FROM users WHERE email = ?
+    Database-->>UserRepository: Optional<User>
+    UserRepository-->>AuthService: User or empty
+
+    alt User not found
+        AuthService-->>AuthController: throw BusinessException("Invalid email or password")
+        AuthController-->>Client: 400 Bad Request
+    end
+
+    AuthService->>PasswordEncoder: matches(password, user.passwordHash)
+    PasswordEncoder-->>AuthService: boolean
+
+    alt Password does not match
+        AuthService-->>AuthController: throw BusinessException("Invalid email or password")
+        AuthController-->>Client: 400 Bad Request
+    end
+
+    alt Email not verified
+        AuthService-->>AuthController: throw BusinessException("Please verify your email before logging in")
+        AuthController-->>Client: 400 Bad Request
+    end
+
+    Note right of AuthService: Update last seen timestamp
+
+    AuthService->>UserRepository: save(User)
+    UserRepository->>Database: UPDATE users SET updated_at = ? WHERE id = ?
+    Database-->>UserRepository: OK
+    UserRepository-->>AuthService: updated User
+
+    Note right of AuthService: Generate token pair
+
+    AuthService->>JwtTokenProvider: generateAccessToken(userId, email, role)
+    JwtTokenProvider-->>AuthService: JWT access token (15min expiry)
+
+    AuthService->>JwtTokenProvider: generateRefreshToken(userId)
+    JwtTokenProvider-->>AuthService: JWT refresh token (7 days expiry)
+
+    AuthService->>RefreshTokenRepository: save(RefreshToken)
+    RefreshTokenRepository->>Database: INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)
+    Database-->>RefreshTokenRepository: RefreshToken
+    RefreshTokenRepository-->>AuthService: saved RefreshToken
+
+    AuthService-->>AuthController: AuthResponse(accessToken, refreshToken, user)
+    AuthController-->>Client: 200 OK<br/>{message: "Login successful", data: {accessToken, refreshToken, user}}

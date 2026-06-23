@@ -1,0 +1,47 @@
+sequenceDiagram
+    participant Client
+    participant AuthController
+    participant AuthService
+    participant PasswordEncoder
+    participant UserRepository
+    participant VerificationTokenRepository
+    participant Database
+
+    Client->>AuthController: POST /api/v1/auth/register<br/>{email, password, displayName, role}
+    AuthController->>AuthService: register(RegisterRequest)
+
+    alt Role is not BUYER or SELLER
+        AuthService-->>AuthController: throw BusinessException("Invalid role")
+        AuthController-->>Client: 400 Bad Request
+    end
+
+    AuthService->>UserRepository: existsByEmail(email)
+    UserRepository->>Database: SELECT EXISTS(SELECT 1 FROM users WHERE email = ?)
+    Database-->>UserRepository: boolean
+    UserRepository-->>AuthService: true/false
+
+    alt Email already registered
+        AuthService-->>AuthController: throw BusinessException("Email already registered")
+        AuthController-->>Client: 400 Bad Request
+    end
+
+    Note right of AuthService: Create User entity<br/>verified=false<br/>authenticationType=LOCAL
+
+    AuthService->>PasswordEncoder: encode(password)
+    PasswordEncoder-->>AuthService: BCrypt hash
+    AuthService->>UserRepository: save(User)
+    UserRepository->>Database: INSERT INTO users (email, password_hash, display_name, role, verified, authentication_type) VALUES (?, ?, ?, ?, false, 'LOCAL')
+    Database-->>UserRepository: User (with generated UUID)
+    UserRepository-->>AuthService: saved User
+
+    Note right of AuthService: Generate verification token<br/>UUID, expires in 24h
+
+    AuthService->>VerificationTokenRepository: save(VerificationToken)
+    VerificationTokenRepository->>Database: INSERT INTO verification_tokens (user_id, token, expires_at) VALUES (?, ?, ?)
+    Database-->>VerificationTokenRepository: VerificationToken
+    VerificationTokenRepository-->>AuthService: saved VerificationToken
+
+    Note right of AuthService: Log token (email service not implemented)
+
+    AuthService-->>AuthController: UserResponse
+    AuthController-->>Client: 201 Created<br/>{message: "Registration successful", data: UserResponse}

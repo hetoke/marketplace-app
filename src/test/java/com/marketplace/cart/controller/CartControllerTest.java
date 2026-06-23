@@ -91,28 +91,20 @@ class CartControllerTest {
         String productId = UUID.randomUUID().toString();
         when(cartService.addItem(eq(userId), any(UUID.class), eq(2))).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/cart/items")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productId\":\"" + productId + "\",\"quantity\":2}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.message").value("Item added to cart"));
-    }
-
-    @Test
-    void addItem_returnsBadRequest_whenProductIdMissing() throws Exception {
-        mockMvc.perform(post("/api/v1/cart/items")
+        mockMvc.perform(post("/api/v1/cart/items/" + productId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"quantity\":2}"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.message").value("Item added to cart"));
     }
 
     @Test
     void addItem_returnsBadRequest_whenQuantityLessThanOne() throws Exception {
         String productId = UUID.randomUUID().toString();
 
-        mockMvc.perform(post("/api/v1/cart/items")
+        mockMvc.perform(post("/api/v1/cart/items/" + productId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productId\":\"" + productId + "\",\"quantity\":0}"))
+                        .content("{\"quantity\":0}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -122,9 +114,9 @@ class CartControllerTest {
         when(cartService.addItem(eq(userId), any(UUID.class), eq(1)))
                 .thenThrow(new ResourceNotFoundException("Product", "id", UUID.randomUUID()));
 
-        mockMvc.perform(post("/api/v1/cart/items")
+        mockMvc.perform(post("/api/v1/cart/items/" + productId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productId\":\"" + productId + "\",\"quantity\":1}"))
+                        .content("{\"quantity\":1}"))
                 .andExpect(status().isNotFound());
     }
 
@@ -134,9 +126,9 @@ class CartControllerTest {
         when(cartService.addItem(eq(userId), any(UUID.class), eq(10)))
                 .thenThrow(new BusinessException("Insufficient stock. Available: 3"));
 
-        mockMvc.perform(post("/api/v1/cart/items")
+        mockMvc.perform(post("/api/v1/cart/items/" + productId)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"productId\":\"" + productId + "\",\"quantity\":10}"))
+                        .content("{\"quantity\":10}"))
                 .andExpect(status().isBadRequest());
     }
 

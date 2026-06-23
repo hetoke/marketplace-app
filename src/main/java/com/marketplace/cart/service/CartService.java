@@ -8,6 +8,7 @@ import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -86,7 +87,7 @@ public class CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item", "id", itemId));
 
         if (!item.getCart().getId().equals(cart.getId())) {
-            throw new BusinessException("Cart item does not belong to this cart");
+            throw new AccessDeniedException("Cart item does not belong to this cart");
         }
 
         Product product = productRepository.findById(item.getProductId())
@@ -115,7 +116,7 @@ public class CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cart item", "id", itemId));
 
         if (!item.getCart().getId().equals(cart.getId())) {
-            throw new BusinessException("Cart item does not belong to this cart");
+            throw new AccessDeniedException("Cart item does not belong to this cart");
         }
 
         cartItemRepository.delete(item);

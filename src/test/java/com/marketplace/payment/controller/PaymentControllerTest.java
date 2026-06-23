@@ -65,12 +65,11 @@ class PaymentControllerTest {
                 new BigDecimal("99.99"), "USD", "CREDIT_CARD", "COMPLETED",
                 "4242", "VISA", "MOCK-ABC12345", null, null, Instant.now());
 
-        when(paymentService.processPayment(anyString(), any())).thenReturn(response);
+        when(paymentService.processPayment(anyString(), any(UUID.class), any())).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"orderId\":\"" + UUID.randomUUID()
-                                + "\",\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
+                        .content("{\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
                                 + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message").value("Payment processed"))
@@ -80,13 +79,12 @@ class PaymentControllerTest {
 
     @Test
     void processPayment_invalidCard_returns400() throws Exception {
-        when(paymentService.processPayment(anyString(), any()))
+        when(paymentService.processPayment(anyString(), any(UUID.class), any()))
                 .thenThrow(new BusinessException("Invalid card number format"));
 
-        mockMvc.perform(post("/api/v1/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"orderId\":\"" + UUID.randomUUID()
-                                + "\",\"cardNumber\":\"123\",\"cardHolder\":\"John Doe\","
+                        .content("{\"cardNumber\":\"123\",\"cardHolder\":\"John Doe\","
                                 + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Invalid card number format"));
@@ -94,13 +92,12 @@ class PaymentControllerTest {
 
     @Test
     void processPayment_orderNotFound_returns404() throws Exception {
-        when(paymentService.processPayment(anyString(), any()))
+        when(paymentService.processPayment(anyString(), any(UUID.class), any()))
                 .thenThrow(new ResourceNotFoundException("Order", "id", UUID.randomUUID()));
 
-        mockMvc.perform(post("/api/v1/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"orderId\":\"" + UUID.randomUUID()
-                                + "\",\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
+                        .content("{\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
                                 + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
                 .andExpect(status().isNotFound());
     }
@@ -136,7 +133,7 @@ class PaymentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reason\":\"Changed my mind\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Refund processed"))
+                .andExpect(jsonPath("$.message").value("Refund requested"))
                 .andExpect(jsonPath("$.data.status").value("REFUNDED"));
     }
 

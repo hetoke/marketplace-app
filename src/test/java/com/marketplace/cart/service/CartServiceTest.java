@@ -13,6 +13,7 @@ import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -250,7 +251,7 @@ class CartServiceTest {
                 .thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> cartService.updateQuantity(USER_ID, item.getId(), 5))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
     }
 
@@ -291,7 +292,7 @@ class CartServiceTest {
                 .thenReturn(Optional.of(item));
 
         assertThatThrownBy(() -> cartService.removeItem(USER_ID, item.getId()))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
     }
 

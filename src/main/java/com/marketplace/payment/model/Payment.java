@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -58,12 +59,15 @@ public class Payment {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Version
+    private Long version;
+
     public enum PaymentMethod {
         CREDIT_CARD
     }
 
     public enum PaymentStatus {
-        PENDING, COMPLETED, FAILED, REFUNDED
+        PENDING, COMPLETED, FAILED, REFUND_REQUESTED, REFUNDED
     }
 
     public Payment() {}

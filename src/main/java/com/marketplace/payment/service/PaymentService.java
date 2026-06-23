@@ -11,10 +11,12 @@ import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentMethod;
 import com.marketplace.payment.model.Payment.PaymentStatus;
 import com.marketplace.payment.repository.PaymentRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,13 +37,17 @@ public class PaymentService {
     }
 
     @Transactional
-    public PaymentResponse processPayment(String userId, ProcessPaymentRequest request) {
+    public PaymentResponse processPayment(String userId, UUID orderId, ProcessPaymentRequest request) {
         UUID buyerId = UUID.fromString(userId);
-        Order order = orderRepository.findById(request.orderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", request.orderId()));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Order does not belong to this user");
+            throw new AccessDeniedException("Order does not belong to this user");
+        }
+
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.RETURNED) {
+            throw new BusinessException("Cannot process payment for this order");
         }
 
         if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
@@ -50,6 +56,15 @@ public class PaymentService {
 
         if (order.getPaymentStatus() == Order.PaymentStatus.REFUNDED) {
             throw new BusinessException("Order has been refunded");
+        }
+
+        if (order.getPaymentStatus() == Order.PaymentStatus.REFUND_REQUESTED) {
+            throw new BusinessException("Order has a pending refund");
+        }
+
+        Optional<Payment> existingPayment = paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.COMPLETED);
+        if (existingPayment.isPresent()) {
+            throw new BusinessException("Payment already exists for this order");
         }
 
         validateCard(request.cardNumber(), request.expiryMonth(), request.expiryYear(), request.cvv());
@@ -102,7 +117,7 @@ public class PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", payment.getOrderId()));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Payment does not belong to this user");
+            throw new AccessDeniedException("Payment does not belong to this user");
         }
 
         return PaymentResponse.from(payment);
@@ -119,7 +134,7 @@ public class PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Payment does not belong to this user");
+            throw new AccessDeniedException("Payment does not belong to this user");
         }
 
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
@@ -132,6 +147,32 @@ public class PaymentService {
             throw new BusinessException("Refund requires order to be RETURN_REQUESTED, RETURNED, or CANCELLED");
         }
 
+        payment.setStatus(PaymentStatus.REFUND_REQUESTED);
+        payment.setUpdatedAt(Instant.now());
+
+        order.setPaymentStatus(Order.PaymentStatus.REFUND_REQUESTED);
+        order.setUpdatedAt(Instant.now());
+
+        payment = paymentRepository.save(payment);
+        orderRepository.save(order);
+
+        log.info("Refund requested: paymentId={}, orderId={}", payment.getId(), order.getId());
+
+        return PaymentResponse.from(payment);
+    }
+
+    @Transactional
+    public PaymentResponse approveRefund(UUID paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        if (payment.getStatus() != PaymentStatus.REFUND_REQUESTED) {
+            throw new BusinessException("Payment does not have a pending refund request");
+        }
+
+        Order order = orderRepository.findById(payment.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", payment.getOrderId()));
+
         payment.setStatus(PaymentStatus.REFUNDED);
         payment.setRefundedAt(Instant.now());
         payment.setUpdatedAt(Instant.now());
@@ -139,12 +180,12 @@ public class PaymentService {
         order.setPaymentStatus(Order.PaymentStatus.REFUNDED);
         order.setUpdatedAt(Instant.now());
 
-        payment = paymentRepository.save(payment);
+        Payment savedPayment = paymentRepository.save(payment);
         orderRepository.save(order);
 
-        log.info("Refund processed: paymentId={}, orderId={}", payment.getId(), order.getId());
+        log.info("Refund approved: paymentId={}, orderId={}", savedPayment.getId(), order.getId());
 
-        return PaymentResponse.from(payment);
+        return PaymentResponse.from(savedPayment);
     }
 
     @Transactional(readOnly = true)

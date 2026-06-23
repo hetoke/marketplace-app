@@ -17,6 +17,7 @@ import com.marketplace.order.repository.OrderItemRepository;
 import com.marketplace.order.repository.OrderRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -143,7 +144,7 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Order does not belong to this user");
+            throw new AccessDeniedException("Order does not belong to this user");
         }
 
         List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
@@ -154,9 +155,18 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse updateStatus(UUID orderId, OrderStatus newStatus) {
+    public OrderResponse updateStatus(String userId, UUID orderId, OrderStatus newStatus) {
+        UUID buyerId = UUID.fromString(userId);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (!order.getBuyerId().equals(buyerId)) {
+            throw new AccessDeniedException("Order does not belong to this user");
+        }
+
+        if (newStatus == OrderStatus.SHIPPED && order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+            throw new BusinessException("Order must be paid before shipping");
+        }
 
         OrderStatus currentStatus = order.getStatus();
         validateStatusTransition(currentStatus, newStatus);
@@ -182,7 +192,15 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Order does not belong to this user");
+            throw new AccessDeniedException("Order does not belong to this user");
+        }
+
+        if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
+            throw new BusinessException("Cannot cancel a paid order. Request a refund first.");
+        }
+
+        if (order.getPaymentStatus() == Order.PaymentStatus.REFUND_REQUESTED) {
+            throw new BusinessException("Cannot cancel an order with a pending refund.");
         }
 
         if (order.getStatus() != OrderStatus.PENDING && order.getStatus() != OrderStatus.CONFIRMED) {
@@ -219,7 +237,7 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
 
         if (!order.getBuyerId().equals(buyerId)) {
-            throw new BusinessException("Order does not belong to this user");
+            throw new AccessDeniedException("Order does not belong to this user");
         }
 
         if (order.getStatus() != OrderStatus.DELIVERED) {
@@ -249,7 +267,7 @@ public class OrderService {
             case PENDING -> next == OrderStatus.CONFIRMED || next == OrderStatus.CANCELLED;
             case CONFIRMED -> next == OrderStatus.SHIPPED || next == OrderStatus.CANCELLED;
             case SHIPPED -> next == OrderStatus.DELIVERED;
-            case DELIVERED -> next == OrderStatus.RETURN_REQUESTED || next == OrderStatus.RETURNED;
+            case DELIVERED -> next == OrderStatus.RETURN_REQUESTED;
             case RETURN_REQUESTED -> next == OrderStatus.RETURNED;
             case CANCELLED, RETURNED -> false;
         };

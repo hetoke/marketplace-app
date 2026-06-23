@@ -22,6 +22,7 @@ import com.marketplace.order.repository.OrderItemRepository;
 import com.marketplace.order.repository.OrderRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -214,7 +215,7 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> orderService.getOrder(USER_ID, order.getId()))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
     }
 
@@ -295,6 +296,40 @@ class OrderServiceTest {
     }
 
     @Test
+    void cancelOrder_throwsException_whenPaidOrder() {
+        UUID userUuid = UUID.fromString(USER_ID);
+        Order order = new Order(userUuid, BigDecimal.TEN, "USD", "{}");
+        order.setId(UUID.randomUUID());
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setPaymentStatus(Order.PaymentStatus.PAID);
+
+        when(orderRepository.findById(order.getId()))
+                .thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.cancelOrder(USER_ID, order.getId(),
+                new CancelOrderRequest("Reason")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("paid order");
+    }
+
+    @Test
+    void cancelOrder_throwsException_whenRefundRequested() {
+        UUID userUuid = UUID.fromString(USER_ID);
+        Order order = new Order(userUuid, BigDecimal.TEN, "USD", "{}");
+        order.setId(UUID.randomUUID());
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setPaymentStatus(Order.PaymentStatus.REFUND_REQUESTED);
+
+        when(orderRepository.findById(order.getId()))
+                .thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.cancelOrder(USER_ID, order.getId(),
+                new CancelOrderRequest("Reason")))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("pending refund");
+    }
+
+    @Test
     void updateStatus_transitionsPENDINGtoCONFIRMED() {
         UUID userUuid = UUID.fromString(USER_ID);
         Order order = new Order(userUuid, BigDecimal.TEN, "USD", "{}");
@@ -306,7 +341,7 @@ class OrderServiceTest {
         when(orderRepository.save(any(Order.class))).thenReturn(order);
         when(orderItemRepository.findByOrderId(order.getId())).thenReturn(List.of());
 
-        OrderResponse response = orderService.updateStatus(order.getId(), OrderStatus.CONFIRMED);
+        OrderResponse response = orderService.updateStatus(USER_ID, order.getId(), OrderStatus.CONFIRMED);
 
         assertThat(response.status()).isEqualTo("CONFIRMED");
     }
@@ -321,8 +356,39 @@ class OrderServiceTest {
         when(orderRepository.findById(order.getId()))
                 .thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> orderService.updateStatus(order.getId(), OrderStatus.DELIVERED))
+        assertThatThrownBy(() -> orderService.updateStatus(USER_ID, order.getId(), OrderStatus.DELIVERED))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Invalid status transition");
+    }
+
+    @Test
+    void updateStatus_throwsException_whenNotPaidAndShipping() {
+        UUID userUuid = UUID.fromString(USER_ID);
+        Order order = new Order(userUuid, BigDecimal.TEN, "USD", "{}");
+        order.setId(UUID.randomUUID());
+        order.setStatus(OrderStatus.CONFIRMED);
+        order.setPaymentStatus(Order.PaymentStatus.PENDING);
+
+        when(orderRepository.findById(order.getId()))
+                .thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.updateStatus(USER_ID, order.getId(), OrderStatus.SHIPPED))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("must be paid before shipping");
+    }
+
+    @Test
+    void updateStatus_throwsException_whenNotOrderOwner() {
+        UUID otherUserUuid = UUID.fromString(OTHER_USER_ID);
+        Order order = new Order(otherUserUuid, BigDecimal.TEN, "USD", "{}");
+        order.setId(UUID.randomUUID());
+        order.setStatus(OrderStatus.PENDING);
+
+        when(orderRepository.findById(order.getId()))
+                .thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.updateStatus(USER_ID, order.getId(), OrderStatus.CONFIRMED))
+                .isInstanceOf(AccessDeniedException.class)
+                .hasMessageContaining("does not belong");
     }
 }

@@ -1,0 +1,138 @@
+sequenceDiagram
+    participant Client
+    participant UploadController
+    participant UploadService
+    participant ProductRepository
+    participant SupabaseStorageClient
+    participant UploadSessionRepository
+    participant Database
+    participant Supabase
+    participant WebhookController
+    participant WebhookService
+    participant ImageRepository
+
+    rect rgb(240, 248, 255)
+        Note over Client, Database: Phase 1: Request Signed Upload URL
+        Client->>UploadController: POST /api/v1/products/{productId}/images<br/>{fileName, fileSize, contentType}
+        UploadController->>UploadService: requestProductUpload(userId, productId, ProductImageUploadRequest)
+
+        UploadService->>ProductRepository: findById(productId)
+        ProductRepository->>Database: SELECT * FROM products WHERE id = ?
+        Database-->>ProductRepository: Product
+        ProductRepository-->>UploadService: Product
+
+        alt Product not found
+            UploadService-->>UploadController: throw ResourceNotFoundException
+            UploadController-->>Client: 404 Not Found
+        end
+
+        alt Not product owner
+            UploadService-->>UploadController: throw AccessDeniedException
+            UploadController-->>Client: 403 Forbidden
+        end
+
+        UploadService->>UploadService: validateFileType(contentType)
+        UploadService->>UploadService: validateFileSize(fileSize)
+        UploadService->>UploadSessionRepository: countByEntityTypeAndEntityIdAndStatus(PRODUCT, productId, COMPLETED)
+        UploadSessionRepository->>Database: SELECT COUNT(*) FROM upload_sessions WHERE entity_type = 'PRODUCT' AND entity_id = ? AND status = 'COMPLETED'
+        Database-->>UploadSessionRepository: count
+        UploadSessionRepository-->>UploadService: count
+
+        alt Image quota exceeded (>=10)
+            UploadService-->>UploadController: throw BusinessException("Product image limit reached")
+            UploadController-->>Client: 400 Bad Request
+        end
+
+        Note right of UploadService: Build storage path:<br/>products/{productId}/{fileName}
+
+        UploadService->>SupabaseStorageClient: createSignedUploadUrl(storagePath, expiryHours)
+        SupabaseStorageClient->>Supabase: POST /storage/v1/object/sign/{bucket}/{path}<br/>{expiresIn: 7200}
+        Supabase-->>SupabaseStorageClient: {signedURL, token}
+        SupabaseStorageClient-->>UploadService: SignedUploadUrl(uploadUrl, token, expiresAt)
+
+        UploadService->>UploadSessionRepository: save(new UploadSession(status=PENDING))
+        UploadSessionRepository->>Database: INSERT INTO upload_sessions (entity_type, entity_id, uploaded_by, file_name, file_size, content_type, storage_path, supabase_token, status, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
+        Database-->>UploadSessionRepository: UploadSession
+        UploadSessionRepository-->>UploadService: saved session
+
+        UploadService-->>UploadController: UploadResponse(sessionId, uploadUrl, token, expiresAt)
+        UploadController-->>Client: 201 Created<br/>{sessionId, uploadUrl, token, expiresAt}
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Client, Supabase: Phase 2: Client Uploads Directly to Supabase
+        Client->>Supabase: PUT {uploadUrl}<br/>Headers: Authorization: Bearer {token}<br/>Body: file binary data
+        Supabase-->>Client: 200 OK
+    end
+
+    rect rgb(245, 255, 245)
+        Note over Supabase, ImageRepository: Phase 3: Supabase Webhook Triggers Finalization
+        Supabase->>WebhookController: POST /api/v1/webhooks/storage<br/>Headers: X-Webhook-Secret: {secret}<br/>Body: {type: "INSERT", record: {name, mimetype, ...}}
+
+        alt Invalid webhook secret
+            WebhookController-->>Supabase: 403 Forbidden
+        end
+
+        alt Event type is not INSERT
+            WebhookController-->>Supabase: 200 OK (ignored)
+        end
+
+        WebhookController->>WebhookService: handleStorageInsert(StorageRecord)
+        WebhookService->>UploadService: completeUploadFromWebhook(storagePath, record)
+
+        UploadService->>UploadSessionRepository: findByStoragePathAndStatus(storagePath, PENDING)
+        UploadSessionRepository->>Database: SELECT * FROM upload_sessions WHERE storage_path = ? AND status = 'PENDING'
+        Database-->>UploadSessionRepository: Optional<UploadSession>
+        UploadSessionRepository-->>UploadService: session
+
+        alt No pending session found
+            UploadService-->>WebhookService: return (log warning)
+        end
+
+        alt Session expired
+            UploadService->>UploadSessionRepository: save(session with status=EXPIRED)
+            UploadSessionRepository->>Database: UPDATE upload_sessions SET status = 'EXPIRED' WHERE id = ?
+            Database-->>UploadSessionRepository: OK
+            UploadService-->>WebhookService: return
+        end
+
+        Note right of UploadService: Build public file URL<br/>Check entity type
+
+        alt Entity type is USER (avatar upsert)
+            UploadService->>ImageRepository: findByEntityTypeAndEntityIdAndUploadedBy(USER, entityId, uploadedBy)
+            ImageRepository->>Database: SELECT * FROM images WHERE entity_type = 'USER' AND entity_id = ? AND uploaded_by = ?
+            Database-->>ImageRepository: Optional<Image>
+            ImageRepository-->>UploadService: existing image or empty
+
+            alt Existing avatar found
+                UploadService->>ImageRepository: save(updated Image)
+                ImageRepository->>Database: UPDATE images SET file_url = ?, file_name = ?, file_size = ?, content_type = ? WHERE id = ?
+                Database-->>ImageRepository: OK
+            else No existing avatar
+                UploadService->>ImageRepository: save(new Image)
+                ImageRepository->>Database: INSERT INTO images (file_url, file_name, file_size, content_type, entity_type, entity_id, uploaded_by) VALUES (?, ?, ?, ?, 'USER', ?, ?)
+                Database-->>ImageRepository: OK
+            end
+        else Entity type is PRODUCT (insert)
+            UploadService->>UploadSessionRepository: countByEntityTypeAndEntityIdAndStatus(PRODUCT, entityId, COMPLETED)
+            UploadSessionRepository->>Database: SELECT COUNT(*) FROM upload_sessions WHERE entity_type = 'PRODUCT' AND entity_id = ? AND status = 'COMPLETED'
+            Database-->>UploadSessionRepository: count
+            UploadSessionRepository-->>UploadService: count
+
+            alt Max images reached (>=10)
+                Note right of UploadService: Skip image creation
+            else Within limit
+                UploadService->>ImageRepository: save(new Image)
+                ImageRepository->>Database: INSERT INTO images (...) VALUES (?, ?, ?, ?, 'PRODUCT', ?, ?)
+                Database-->>ImageRepository: OK
+            end
+        end
+
+        UploadService->>UploadSessionRepository: save(session with status=COMPLETED)
+        UploadSessionRepository->>Database: UPDATE upload_sessions SET status = 'COMPLETED', updated_at = ? WHERE id = ?
+        Database-->>UploadSessionRepository: OK
+
+        UploadService-->>WebhookService: void
+        WebhookService-->>WebhookController: void
+        WebhookController-->>Supabase: 200 OK
+    end

@@ -1,0 +1,111 @@
+sequenceDiagram
+    participant Client
+    participant OrderController
+    participant OrderService
+    participant CartRepository
+    participant CartItemRepository
+    participant ProductRepository
+    participant OrderRepository
+    participant OrderItemRepository
+    participant Database
+
+    Client->>OrderController: POST /api/v1/orders<br/>{shippingAddress: {...}}
+    OrderController->>OrderService: placeOrder(userId, PlaceOrderRequest)
+
+    Note right of OrderService: Find active cart
+
+    OrderService->>CartRepository: findByUserIdAndStatus(userId, ACTIVE)
+    CartRepository->>Database: SELECT * FROM carts WHERE user_id = ? AND status = 'ACTIVE'
+    Database-->>CartRepository: Optional<Cart>
+    CartRepository-->>OrderService: Cart
+
+    alt No active cart
+        OrderService-->>OrderController: throw BusinessException("No active cart found")
+        OrderController-->>Client: 400 Bad Request
+    end
+
+    OrderService->>CartItemRepository: findByCartId(cartId)
+    CartItemRepository->>Database: SELECT * FROM cart_items WHERE cart_id = ?
+    Database-->>CartItemRepository: List<CartItem>
+    CartItemRepository-->>OrderService: cartItems
+
+    alt Cart is empty
+        OrderService-->>OrderController: throw BusinessException("Cart is empty")
+        OrderController-->>Client: 400 Bad Request
+    end
+
+    Note right of OrderService: Serialize shipping address to JSON
+
+    OrderService->>OrderRepository: save(new Order(buyerId, totalAmount=0, currency="USD", shippingAddressJson))
+    OrderRepository->>Database: INSERT INTO orders (buyer_id, total_amount, currency, shipping_address, status, payment_status) VALUES (?, 0, 'USD', ?, 'PENDING', 'PENDING')
+    Database-->>OrderRepository: Order (with generated UUID)
+    OrderRepository-->>OrderService: saved Order
+
+    Note right of OrderService: Process each cart item
+
+    loop For each CartItem
+        OrderService->>ProductRepository: findById(productId)
+        ProductRepository->>Database: SELECT * FROM products WHERE id = ?
+        Database-->>ProductRepository: Optional<Product>
+        ProductRepository-->>OrderService: Product
+
+        alt Product not found
+            OrderService-->>OrderController: throw ResourceNotFoundException
+            OrderController-->>Client: 404 Not Found
+        end
+
+        alt Product not active
+            OrderService-->>OrderController: throw BusinessException("Product is no longer available")
+            OrderController-->>Client: 400 Bad Request
+        end
+
+        alt Insufficient stock
+            OrderService-->>OrderController: throw BusinessException("Insufficient stock for 'X'. Available: Y, requested: Z")
+            OrderController-->>Client: 400 Bad Request
+        end
+
+        Note right of OrderService: Decrement stock with<br/>optimistic locking (@Version)
+
+        OrderService->>ProductRepository: save(Product)
+        ProductRepository->>Database: UPDATE products SET stock = ? WHERE id = ? AND version = ?
+        Database-->>ProductRepository: OK
+
+        opt Optimistic locking failure
+            ProductRepository-->>OrderService: throw ObjectOptimisticLockingFailureException
+            OrderService-->>OrderController: throw BusinessException("concurrent purchase")
+            OrderController-->>Client: 409 Conflict
+        end
+
+        Note right of OrderService: Create OrderItem (snapshot:<br/>product name, price, quantity)
+
+        OrderService->>OrderItemRepository: save(new OrderItem)
+        OrderItemRepository->>Database: INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity) VALUES (?, ?, ?, ?, ?)
+        Database-->>OrderItemRepository: OrderItem
+        OrderItemRepository-->>OrderService: saved OrderItem
+
+        Note right of OrderService: Accumulate totalAmount
+    end
+
+    Note right of OrderService: Finalize order
+
+    OrderService->>OrderRepository: save(Order)
+    OrderRepository->>Database: UPDATE orders SET total_amount = ? WHERE id = ?
+    Database-->>OrderRepository: OK
+
+    OrderService->>CartItemRepository: deleteByCartId(cartId)
+    CartItemRepository->>Database: DELETE FROM cart_items WHERE cart_id = ?
+    Database-->>CartItemRepository: OK
+
+    OrderService->>CartRepository: save(Cart)
+    CartRepository->>Database: UPDATE carts SET status = 'CONVERTED', updated_at = ? WHERE id = ?
+    Database-->>CartRepository: OK
+
+    Note right of OrderService: Build response with items
+
+    OrderService->>OrderItemRepository: findByOrderId(orderId)
+    OrderItemRepository->>Database: SELECT * FROM order_items WHERE order_id = ?
+    Database-->>OrderItemRepository: List<OrderItem>
+    OrderItemRepository-->>OrderService: items
+
+    OrderService-->>OrderController: OrderResponse(order, items)
+    OrderController-->>Client: 201 Created<br/>{message: "Order placed successfully", data: OrderResponse}

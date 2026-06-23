@@ -149,7 +149,7 @@ class OrderControllerTest {
     @Test
     void updateStatus_returnsOk() throws Exception {
         OrderResponse response = createTestOrderResponse();
-        when(orderService.updateStatus(any(UUID.class), any())).thenReturn(response);
+        when(orderService.updateStatus(eq(userId), any(UUID.class), any())).thenReturn(response);
 
         mockMvc.perform(put("/api/v1/orders/" + UUID.randomUUID() + "/status")
                         .contentType(MediaType.APPLICATION_JSON)

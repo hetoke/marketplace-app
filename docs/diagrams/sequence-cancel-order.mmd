@@ -1,0 +1,69 @@
+sequenceDiagram
+    participant Client
+    participant OrderController
+    participant OrderService
+    participant OrderRepository
+    participant OrderItemRepository
+    participant ProductRepository
+    participant Database
+
+    Client->>OrderController: POST /api/v1/orders/{orderId}/cancel<br/>{reason}
+    OrderController->>OrderService: cancelOrder(userId, orderId, CancelOrderRequest)
+
+    OrderService->>OrderRepository: findById(orderId)
+    OrderRepository->>Database: SELECT * FROM orders WHERE id = ?
+    Database-->>OrderRepository: Optional<Order>
+    OrderRepository-->>OrderService: Order
+
+    alt Order not found
+        OrderService-->>OrderController: throw ResourceNotFoundException
+        OrderController-->>Client: 404 Not Found
+    end
+
+    alt Order does not belong to user
+        OrderService-->>OrderController: throw AccessDeniedException
+        OrderController-->>Client: 403 Forbidden
+    end
+
+    alt Order is paid (PaymentStatus=PAID)
+        OrderService-->>OrderController: throw BusinessException("Cannot cancel a paid order. Request a refund first.")
+        OrderController-->>Client: 400 Bad Request
+    end
+
+    alt Status is not PENDING or CONFIRMED
+        OrderService-->>OrderController: throw BusinessException("Order can only be cancelled from PENDING or CONFIRMED status")
+        OrderController-->>Client: 400 Bad Request
+    end
+
+    Note right of OrderService: Set status=CANCELLED<br/>Record cancel reason and timestamp
+
+    OrderService->>OrderRepository: save(Order)
+    OrderRepository->>Database: UPDATE orders SET status = 'CANCELLED', cancelled_at = ?, cancel_reason = ?, updated_at = ? WHERE id = ?
+    Database-->>OrderRepository: OK
+    OrderRepository-->>OrderService: updated Order
+
+    Note right of OrderService: Restock all order items
+
+    OrderService->>OrderItemRepository: findByOrderId(orderId)
+    OrderItemRepository->>Database: SELECT * FROM order_items WHERE order_id = ?
+    Database-->>OrderItemRepository: List<OrderItem>
+    OrderItemRepository-->>OrderService: orderItems
+
+    loop For each OrderItem
+        OrderService->>ProductRepository: findById(productId)
+        ProductRepository->>Database: SELECT * FROM products WHERE id = ?
+        Database-->>ProductRepository: Optional<Product>
+        ProductRepository-->>OrderService: Product
+
+        alt Product still exists
+            Note right of OrderService: Increment stock
+            OrderService->>ProductRepository: save(Product)
+            ProductRepository->>Database: UPDATE products SET stock = stock + ? WHERE id = ?
+            Database-->>ProductRepository: OK
+        end
+    end
+
+    Note right of OrderService: Build response with items
+
+    OrderService-->>OrderController: OrderResponse(order, items)
+    OrderController-->>Client: 200 OK<br/>{message: "Order cancelled", data: OrderResponse}

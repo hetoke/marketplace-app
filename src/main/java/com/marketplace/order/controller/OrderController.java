@@ -58,8 +58,9 @@ public class OrderController {
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable UUID orderId,
             @RequestBody java.util.Map<String, String> body) {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         OrderStatus newStatus = OrderStatus.valueOf(body.get("status"));
-        OrderResponse order = orderService.updateStatus(orderId, newStatus);
+        OrderResponse order = orderService.updateStatus(userId, orderId, newStatus);
         return ResponseEntity.ok(ApiResponse.ok("Order status updated", order));
     }
 

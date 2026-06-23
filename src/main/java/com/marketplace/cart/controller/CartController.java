@@ -36,11 +36,12 @@ public class CartController {
         return ResponseEntity.ok(ApiResponse.ok(cart));
     }
 
-    @PostMapping("/items")
+    @PostMapping("/items/{productId}")
     public ResponseEntity<ApiResponse<CartResponse>> addItem(
+            @PathVariable UUID productId,
             @Valid @RequestBody AddToCartRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        CartResponse cart = cartService.addItem(userId, request.productId(), request.quantity());
+        CartResponse cart = cartService.addItem(userId, productId, request.quantity());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Item added to cart", cart));
     }

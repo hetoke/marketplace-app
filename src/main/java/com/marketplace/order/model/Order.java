@@ -8,6 +8,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -67,8 +68,11 @@ public class Order {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Version
+    private Long version;
+
     public enum PaymentStatus {
-        PENDING, PAID, REFUNDED
+        PENDING, PAID, REFUND_REQUESTED, REFUNDED
     }
 
     public Order() {}

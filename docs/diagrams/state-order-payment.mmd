@@ -1,0 +1,165 @@
+# Order + Payment State Transitions
+
+This document defines all valid status transitions for **Order.Status** and **Order.PaymentStatus**.
+
+## Status Transition Diagram
+
+```mermaid
+flowchart LR
+    subgraph Order_Status["Order Status"]
+        direction LR
+
+        OP["PENDING"] -->|"confirm"| OC["CONFIRMED"]
+        OP -->|"cancelOrder"| OX["CANCELLED"]
+
+        OC -->|"ship"| OS["SHIPPED"]
+        OC -->|"cancelOrder"| OX
+
+        OS -->|"deliver"| OD["DELIVERED"]
+
+        OD -->|"requestReturn"| ORQ["RETURN_REQUESTED"]
+        ORQ -->|"completeReturn"| ORT["RETURNED"]
+    end
+
+    subgraph Payment_Status["Payment Status"]
+        direction LR
+
+        PP["PENDING"] -->|"processPayment"| IPA["PAID"]
+
+        IPA -->|"requestRefund"| IPRQ["REFUND_REQUESTED"]
+        IPRQ -->|"approveRefund"| IPR["REFUNDED"]
+    end
+
+    %% Cross-domain constraints
+    IPA -.->|"required before shipping"| OS
+
+    OX -.->|"may request refund if paid"| IPRQ
+    ORQ -.->|"may request refund"| IPRQ
+
+    style OP fill:#4CAF50,color:#fff
+    style PP fill:#4CAF50,color:#fff
+
+    style OX fill:#9E9E9E,color:#fff
+    style ORT fill:#9E9E9E,color:#fff
+    style IPR fill:#9E9E9E,color:#fff
+```
+
+### Legend
+
+| Edge Style | Meaning |
+|---|---|
+| Solid arrow | Direct status transition within same domain |
+| Dashed arrow | Cross-domain dependency or constraint |
+
+## Order.Status Transitions
+
+```mermaid
+flowchart TD
+    PENDING -->|"confirm"| CONFIRMED
+    PENDING -->|"cancelOrder"| CANCELLED
+    CONFIRMED -->|"ship"| SHIPPED
+    CONFIRMED -->|"cancelOrder"| CANCELLED
+    SHIPPED -->|"deliver"| DELIVERED
+    DELIVERED -->|"requestReturn"| RETURN_REQUESTED
+    RETURN_REQUESTED -->|"completeReturn"| RETURNED
+
+    style PENDING fill:#4CAF50,color:#fff
+    style CANCELLED fill:#9E9E9E,color:#fff
+    style RETURNED fill:#9E9E9E,color:#fff
+```
+
+| From | To | Action | Guard |
+|---|---|---|---|
+| PENDING | CONFIRMED | `updateStatus(CONFIRMED)` | Valid transition |
+| PENDING | CANCELLED | `cancelOrder()` | PaymentStatus must not be PAID |
+| CONFIRMED | SHIPPED | `updateStatus(SHIPPED)` | PaymentStatus must be PAID |
+| CONFIRMED | CANCELLED | `cancelOrder()` | PaymentStatus must not be PAID |
+| SHIPPED | DELIVERED | `updateStatus(DELIVERED)` | Valid transition |
+| DELIVERED | RETURN_REQUESTED | `requestReturn()` | Not already requested |
+| RETURN_REQUESTED | RETURNED | `updateStatus(RETURNED)` | Valid transition |
+
+**Terminal states:** CANCELLED, RETURNED (no outgoing transitions)
+
+## Order.PaymentStatus Transitions
+
+```mermaid
+flowchart TD
+    PENDING -->|"processPayment"| PAID
+    PAID -->|"requestRefund"| REFUND_REQUESTED
+    REFUND_REQUESTED -->|"approveRefund"| REFUNDED
+
+    style PENDING fill:#4CAF50,color:#fff
+    style REFUNDED fill:#9E9E9E,color:#fff
+```
+
+| From | To | Action | Guard |
+|---|---|---|---|
+| PENDING | PAID | `processPayment()` | Card approved, order not CANCELLED/RETURNED |
+| PAID | REFUND_REQUESTED | `requestRefund()` | Order status must be RETURN_REQUESTED, RETURNED, or CANCELLED |
+| REFUND_REQUESTED | REFUNDED | `approveRefund()` | Refund approved by system/admin |
+
+**Terminal state:** REFUNDED (no outgoing transitions)
+
+## Payment.PaymentStatus Transitions
+
+```mermaid
+flowchart TD
+    PENDING -->|"approved"| COMPLETED
+    PENDING -->|"declined"| FAILED
+    COMPLETED -->|"refund"| REFUNDED
+
+    style PENDING fill:#4CAF50,color:#fff
+    style FAILED fill:#9E9E9E,color:#fff
+    style REFUNDED fill:#9E9E9E,color:#fff
+```
+
+| From | To | Action | Guard |
+|---|---|---|---|
+| PENDING | COMPLETED | `mockAuthorize()` returns true | Card valid |
+| PENDING | FAILED | `mockAuthorize()` returns false | Card ending 0002 |
+| COMPLETED | REFUNDED | `requestRefund()` | Order in RETURN_REQUESTED/RETURNED/CANCELLED |
+
+**Terminal states:** FAILED, REFUNDED (no outgoing transitions)
+
+## Cross-Domain Dependencies
+
+| Dependency | From | To | Meaning |
+|---|---|---|---|
+| Shipping guard | PAID | SHIPPED | Order cannot be shipped unless PaymentStatus = PAID |
+| Refund trigger (return) | RETURN_REQUESTED | REFUND_REQUESTED | Refund allowed when order is RETURN_REQUESTED |
+| Refund trigger (cancel) | CANCELLED | REFUND_REQUESTED | Refund allowed when order is CANCELLED (if paid) |
+| Return guard | DELIVERED | RETURN_REQUESTED | Return only allowed from DELIVERED status |
+
+## Canonical Paths
+
+### Happy Path (Place → Pay → Deliver → Return → Refund)
+```
+PENDING ──confirm──> CONFIRMED ──ship──> SHIPPED ──deliver──> DELIVERED
+                                                                   │
+PENDING ──processPayment──> PAID                              requestReturn
+                                                                   │
+                                                            RETURN_REQUESTED
+                                                                   │
+PAID ──requestRefund──> REFUND_REQUESTED ──approveRefund──> REFUNDED
+                                                                   │
+                                                            completeReturn
+                                                                   │
+                                                              RETURNED
+```
+
+### Cancel Before Payment
+```
+PENDING ──cancelOrder──> CANCELLED (terminal)
+```
+
+### Cancel After Payment (with refund)
+```
+PENDING ──processPayment──> PAID
+PAID ──cancelOrder──> CANCELLED
+PAID ──requestRefund──> REFUND_REQUESTED ──approveRefund──> REFUNDED
+```
+
+### Confirm Then Cancel
+```
+PENDING ──confirm──> CONFIRMED ──cancelOrder──> CANCELLED (terminal)
+```

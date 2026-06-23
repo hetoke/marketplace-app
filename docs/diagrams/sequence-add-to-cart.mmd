@@ -1,0 +1,82 @@
+sequenceDiagram
+    participant Client
+    participant CartController
+    participant CartService
+    participant CartRepository
+    participant CartItemRepository
+    participant ProductRepository
+    participant Database
+
+    Client->>CartController: POST /api/v1/cart/items/{productId}<br/>{quantity}
+    CartController->>CartService: addItem(userId, productId, quantity)
+
+    Note right of CartService: Get or create active cart
+
+    CartService->>CartRepository: findByUserIdAndStatus(userId, ACTIVE)
+    CartRepository->>Database: SELECT * FROM carts WHERE user_id = ? AND status = 'ACTIVE'
+    Database-->>CartRepository: Optional<Cart>
+    CartRepository-->>CartService: Cart or empty
+
+    alt No active cart exists
+        CartService->>CartRepository: save(new Cart(userId))
+        CartRepository->>Database: INSERT INTO carts (user_id, status) VALUES (?, 'ACTIVE')
+        Database-->>CartRepository: new Cart
+        CartRepository-->>CartService: created Cart
+    end
+
+    CartService->>ProductRepository: findById(productId)
+    ProductRepository->>Database: SELECT * FROM products WHERE id = ?
+    Database-->>ProductRepository: Optional<Product>
+    ProductRepository-->>CartService: Product
+
+    alt Product not found
+        CartService-->>CartController: throw ResourceNotFoundException
+        CartController-->>Client: 404 Not Found
+    end
+
+    alt Product not active
+        CartService-->>CartController: throw BusinessException("Product is not available")
+        CartController-->>Client: 400 Bad Request
+    end
+
+    alt Insufficient stock
+        CartService-->>CartController: throw BusinessException("Insufficient stock. Available: X")
+        CartController-->>Client: 400 Bad Request
+    end
+
+    CartService->>CartItemRepository: findByCartIdAndProductId(cartId, productId)
+    CartItemRepository->>Database: SELECT * FROM cart_items WHERE cart_id = ? AND product_id = ?
+    Database-->>CartItemRepository: Optional<CartItem>
+    CartItemRepository-->>CartService: existing CartItem or empty
+
+    alt Item already in cart
+        Note right of CartService: Accumulate quantity
+        alt New quantity exceeds stock
+            CartService-->>CartController: throw BusinessException("Insufficient stock")
+            CartController-->>Client: 400 Bad Request
+        end
+        CartService->>CartItemRepository: save(updated CartItem)
+        CartItemRepository->>Database: UPDATE cart_items SET quantity = ?, unit_price = ? WHERE id = ?
+        Database-->>CartItemRepository: OK
+    else New item
+        CartService->>CartItemRepository: save(new CartItem)
+        CartItemRepository->>Database: INSERT INTO cart_items (cart_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)
+        Database-->>CartItemRepository: CartItem
+    end
+
+    CartService->>CartRepository: save(Cart)
+    CartRepository->>Database: UPDATE carts SET updated_at = ? WHERE id = ?
+    Database-->>CartRepository: OK
+
+    Note right of CartService: Build response:<br/>items + product names + total
+
+    CartService->>CartItemRepository: findByCartId(cartId)
+    CartItemRepository->>Database: SELECT * FROM cart_items WHERE cart_id = ?
+    Database-->>CartItemRepository: List<CartItem>
+    CartItemRepository-->>CartService: items
+
+    CartService->>ProductRepository: findById(productId) [for each item]
+    ProductRepository-->>CartService: product names
+
+    CartService-->>CartController: CartResponse
+    CartController-->>Client: 201 Created<br/>{message: "Item added to cart", data: CartResponse}

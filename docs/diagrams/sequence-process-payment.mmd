@@ -1,0 +1,104 @@
+sequenceDiagram
+    participant Client
+    participant PaymentController
+    participant PaymentService
+    participant OrderRepository
+    participant PaymentRepository
+    participant Database
+
+    Client->>PaymentController: POST /api/v1/orders/{orderId}/payments<br/>{cardNumber, cardHolder, expiryMonth, expiryYear, cvv}
+    PaymentController->>PaymentService: processPayment(userId, orderId, ProcessPaymentRequest)
+
+    PaymentService->>OrderRepository: findById(orderId)
+    OrderRepository->>Database: SELECT * FROM orders WHERE id = ?
+    Database-->>OrderRepository: Optional<Order>
+    OrderRepository-->>PaymentService: Order
+
+    alt Order not found
+        PaymentService-->>PaymentController: throw ResourceNotFoundException
+        PaymentController-->>Client: 404 Not Found
+    end
+
+    alt Order does not belong to user
+        PaymentService-->>PaymentController: throw AccessDeniedException
+        PaymentController-->>Client: 403 Forbidden
+    end
+
+    alt Order is CANCELLED or RETURNED
+        PaymentService-->>PaymentController: throw BusinessException("Cannot process payment for this order")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    alt Order already paid
+        PaymentService-->>PaymentController: throw BusinessException("Order has already been paid")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    alt Order has been refunded
+        PaymentService-->>PaymentController: throw BusinessException("Order has been refunded")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    Note right of PaymentService: Idempotency check
+
+    PaymentService->>PaymentRepository: findByOrderIdAndStatus(orderId, COMPLETED)
+    PaymentRepository->>Database: SELECT * FROM payments WHERE order_id = ? AND status = 'COMPLETED'
+    Database-->>PaymentRepository: Optional<Payment>
+    PaymentRepository-->>PaymentService: existing payment
+
+    alt Payment already exists for this order
+        PaymentService-->>PaymentController: throw BusinessException("Payment already exists for this order")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    Note right of PaymentService: Validate card details
+
+    PaymentService->>PaymentService: validateCard(cardNumber, expiryMonth, expiryYear, cvv)
+
+    alt Invalid card format
+        PaymentService-->>PaymentController: throw BusinessException("Invalid card number format")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    alt Invalid expiry month
+        PaymentService-->>PaymentController: throw BusinessException("Invalid expiry month")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    alt Card expired
+        PaymentService-->>PaymentController: throw BusinessException("Card has expired")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    alt Invalid CVV
+        PaymentService-->>PaymentController: throw BusinessException("Invalid CVV")
+        PaymentController-->>Client: 400 Bad Request
+    end
+
+    Note right of PaymentService: Extract card last 4 digits<br/>Detect card brand<br/>Generate mock provider ref
+
+    PaymentService->>PaymentService: mockAuthorize(cardNumber, totalAmount)
+
+    alt Card ending 0002 (declined)
+        PaymentService->>PaymentRepository: save(new Payment(status=FAILED, failureReason="Insufficient funds"))
+        PaymentRepository->>Database: INSERT INTO payments (order_id, amount, currency, method, card_last_four, card_brand, provider_ref, status, failure_reason) VALUES (?, ?, ?, 'CREDIT_CARD', ?, ?, ?, 'FAILED', 'Insufficient funds')
+        Database-->>PaymentRepository: Payment
+        PaymentRepository-->>PaymentService: failed Payment
+
+        PaymentService-->>PaymentController: PaymentResponse
+        PaymentController-->>Client: 201 Created<br/>{message: "Payment processed", data: {status: FAILED}}
+    else Approved
+        PaymentService->>PaymentRepository: save(new Payment(status=COMPLETED))
+        PaymentRepository->>Database: INSERT INTO payments (...) VALUES (..., 'COMPLETED', NULL)
+        Database-->>PaymentRepository: Payment
+        PaymentRepository-->>PaymentService: completed Payment
+
+        Note right of PaymentService: Update order payment status
+
+        PaymentService->>OrderRepository: save(Order)
+        OrderRepository->>Database: UPDATE orders SET payment_status = 'PAID', updated_at = ? WHERE id = ?
+        Database-->>OrderRepository: OK
+
+        PaymentService-->>PaymentController: PaymentResponse
+        PaymentController-->>Client: 201 Created<br/>{message: "Payment processed", data: {status: COMPLETED}}
+    end

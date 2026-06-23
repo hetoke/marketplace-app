@@ -16,6 +16,7 @@ import com.marketplace.payment.dto.RefundPaymentRequest;
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentStatus;
 import com.marketplace.payment.repository.PaymentRepository;
+import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
@@ -51,7 +52,7 @@ class PaymentServiceTest {
     void processPayment_success() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4242424242424242", "John Doe", 12, 2026, "123");
+                "4242424242424242", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
@@ -60,7 +61,7 @@ class PaymentServiceTest {
             return p;
         });
 
-        PaymentResponse response = paymentService.processPayment(USER_ID.toString(), request);
+        PaymentResponse response = paymentService.processPayment(USER_ID.toString(), ORDER_ID, request);
 
         assertThat(response.status()).isEqualTo("COMPLETED");
         assertThat(response.cardLastFour()).isEqualTo("4242");
@@ -74,7 +75,7 @@ class PaymentServiceTest {
     void processPayment_declinedCard_fails() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4000000000000002", "John Doe", 12, 2026, "123");
+                "4000000000000002", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> {
@@ -83,7 +84,7 @@ class PaymentServiceTest {
             return p;
         });
 
-        PaymentResponse response = paymentService.processPayment(USER_ID.toString(), request);
+        PaymentResponse response = paymentService.processPayment(USER_ID.toString(), ORDER_ID, request);
 
         assertThat(response.status()).isEqualTo("FAILED");
         assertThat(response.failureReason()).isEqualTo("Insufficient funds");
@@ -94,11 +95,11 @@ class PaymentServiceTest {
     void processPayment_alreadyPaid_throwsBusinessException() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PAID);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4242424242424242", "John Doe", 12, 2026, "123");
+                "4242424242424242", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), request))
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("already been paid");
     }
@@ -106,11 +107,11 @@ class PaymentServiceTest {
     @Test
     void processPayment_orderNotFound_throwsResourceNotFound() {
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4242424242424242", "John Doe", 12, 2026, "123");
+                "4242424242424242", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), request))
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Order");
     }
@@ -119,24 +120,65 @@ class PaymentServiceTest {
     void processPayment_notOrderOwner_throwsBusinessException() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4242424242424242", "John Doe", 12, 2026, "123");
+                "4242424242424242", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.processPayment(UUID.randomUUID().toString(), request))
-                .isInstanceOf(BusinessException.class)
+        assertThatThrownBy(() -> paymentService.processPayment(UUID.randomUUID().toString(), ORDER_ID, request))
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
+    }
+
+    @Test
+    void processPayment_cancelledOrder_throwsBusinessException() {
+        Order order = createOrder(OrderStatus.CANCELLED, Order.PaymentStatus.PENDING);
+        ProcessPaymentRequest request = new ProcessPaymentRequest(
+                "4242424242424242", "John Doe", 12, 2026, "123");
+
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Cannot process payment");
+    }
+
+    @Test
+    void processPayment_alreadyCompletedPayment_throwsBusinessException() {
+        Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
+        ProcessPaymentRequest request = new ProcessPaymentRequest(
+                "4242424242424242", "John Doe", 12, 2026, "123");
+
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderIdAndStatus(ORDER_ID, PaymentStatus.COMPLETED))
+                .thenReturn(Optional.of(new Payment()));
+
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("Payment already exists");
+    }
+
+    @Test
+    void processPayment_refundRequested_throwsBusinessException() {
+        Order order = createOrder(OrderStatus.RETURN_REQUESTED, Order.PaymentStatus.REFUND_REQUESTED);
+        ProcessPaymentRequest request = new ProcessPaymentRequest(
+                "4242424242424242", "John Doe", 12, 2026, "123");
+
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("pending refund");
     }
 
     @Test
     void processPayment_invalidCardNumber_throwsBusinessException() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "123", "John Doe", 12, 2026, "123");
+                "123", "John Doe", 12, 2026, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), request))
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Invalid card number");
     }
@@ -145,11 +187,11 @@ class PaymentServiceTest {
     void processPayment_expiredCard_throwsBusinessException() {
         Order order = createOrder(OrderStatus.PENDING, Order.PaymentStatus.PENDING);
         ProcessPaymentRequest request = new ProcessPaymentRequest(
-                ORDER_ID, "4242424242424242", "John Doe", 12, 2020, "123");
+                "4242424242424242", "John Doe", 12, 2020, "123");
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), request))
+        assertThatThrownBy(() -> paymentService.processPayment(USER_ID.toString(), ORDER_ID, request))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("expired");
     }
@@ -168,9 +210,9 @@ class PaymentServiceTest {
 
         PaymentResponse response = paymentService.requestRefund(USER_ID.toString(), PAYMENT_ID, request);
 
-        assertThat(response.status()).isEqualTo("REFUNDED");
-        assertThat(response.refundedAt()).isNotNull();
-        assertThat(order.getPaymentStatus()).isEqualTo(Order.PaymentStatus.REFUNDED);
+        assertThat(response.status()).isEqualTo("REFUND_REQUESTED");
+        assertThat(response.refundedAt()).isNull();
+        assertThat(order.getPaymentStatus()).isEqualTo(Order.PaymentStatus.REFUND_REQUESTED);
     }
 
     @Test
@@ -211,8 +253,46 @@ class PaymentServiceTest {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> paymentService.requestRefund(UUID.randomUUID().toString(), PAYMENT_ID, request))
-                .isInstanceOf(BusinessException.class)
+                .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
+    }
+
+    // ==================== APPROVE REFUND ====================
+
+    @Test
+    void approveRefund_success() {
+        Order order = createOrder(OrderStatus.RETURN_REQUESTED, Order.PaymentStatus.REFUND_REQUESTED);
+        Payment payment = createPayment(PaymentStatus.REFUND_REQUESTED);
+
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentResponse response = paymentService.approveRefund(PAYMENT_ID);
+
+        assertThat(response.status()).isEqualTo("REFUNDED");
+        assertThat(response.refundedAt()).isNotNull();
+        assertThat(order.getPaymentStatus()).isEqualTo(Order.PaymentStatus.REFUNDED);
+    }
+
+    @Test
+    void approveRefund_notRefundRequested_throwsBusinessException() {
+        Payment payment = createPayment(PaymentStatus.COMPLETED);
+
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+
+        assertThatThrownBy(() -> paymentService.approveRefund(PAYMENT_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("pending refund request");
+    }
+
+    @Test
+    void approveRefund_paymentNotFound_throwsResourceNotFound() {
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> paymentService.approveRefund(PAYMENT_ID))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Payment");
     }
 
     // ==================== HELPERS ====================
