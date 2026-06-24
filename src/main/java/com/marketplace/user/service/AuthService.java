@@ -2,6 +2,7 @@ package com.marketplace.user.service;
 
 import com.marketplace.shared.dto.ApiResponse;
 import com.marketplace.shared.exception.BusinessException;
+import com.marketplace.shared.exception.EmailVerificationRequiredException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.shared.security.JwtTokenProvider;
 import com.marketplace.user.dto.AuthResponse;
@@ -87,7 +88,7 @@ public class AuthService {
 		}
 
 		if (!user.isVerified()) {
-			throw new BusinessException("Please verify your email before logging in");
+			throw new EmailVerificationRequiredException("Please verify your email before logging in");
 		}
 
 		user.setUpdatedAt(Instant.now());

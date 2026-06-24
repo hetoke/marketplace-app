@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.marketplace.shared.exception.BusinessException;
+import com.marketplace.shared.exception.EmailVerificationRequiredException;
 import com.marketplace.shared.security.JwtTokenProvider;
 import com.marketplace.user.dto.AuthResponse;
 import com.marketplace.user.dto.LoginRequest;
@@ -274,7 +275,7 @@ class AuthServiceTest {
 		when(passwordEncoder.matches("password123", "encoded_password")).thenReturn(true);
 
 		assertThatThrownBy(() -> authService.login(request))
-				.isInstanceOf(BusinessException.class)
+				.isInstanceOf(EmailVerificationRequiredException.class)
 				.hasMessage("Please verify your email before logging in");
 
 		verify(refreshTokenRepository, never()).save(any());

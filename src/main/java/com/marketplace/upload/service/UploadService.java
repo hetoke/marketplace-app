@@ -10,8 +10,9 @@ import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
-import com.marketplace.upload.dto.AvatarUploadRequest;
-import com.marketplace.upload.dto.ProductImageUploadRequest;
+import com.marketplace.user.model.User;
+import com.marketplace.user.repository.UserRepository;
+
 import com.marketplace.upload.dto.UploadResponse;
 import com.marketplace.upload.model.UploadSession;
 import com.marketplace.upload.model.UploadStatus;
@@ -35,6 +36,7 @@ public class UploadService {
     private final UploadSessionRepository uploadSessionRepository;
     private final ImageRepository imageRepository;
     private final ProductRepository productRepository;
+    private final UserRepository userRepository;
     private final SupabaseStorageClient storageClient;
     private final SupabaseStorageProperties storageProperties;
 
@@ -53,32 +55,32 @@ public class UploadService {
     public UploadService(UploadSessionRepository uploadSessionRepository,
                          ImageRepository imageRepository,
                          ProductRepository productRepository,
+                         UserRepository userRepository,
                          SupabaseStorageClient storageClient,
                          SupabaseStorageProperties storageProperties) {
         this.uploadSessionRepository = uploadSessionRepository;
         this.imageRepository = imageRepository;
         this.productRepository = productRepository;
+        this.userRepository = userRepository;
         this.storageClient = storageClient;
         this.storageProperties = storageProperties;
     }
 
     @Transactional
-    public UploadResponse requestUserUpload(String userId, AvatarUploadRequest request) {
+    public UploadResponse requestUserUpload(String userId) {
         UUID userUuid = UUID.fromString(userId);
         EntityType entityType = EntityType.USER;
         UUID entityId = userUuid;
 
-        validateFileType(request.contentType());
-        validateFileSize(request.fileSize());
         checkUserQuota(entityId);
 
-        String storagePath = buildStoragePath(entityType, entityId, request.fileName());
+        String fileName = "avatar";
+        String storagePath = buildStoragePath(entityType, entityId, fileName);
         SupabaseStorageClient.SignedUploadUrl signedUrl =
                 storageClient.createSignedUploadUrl(storagePath, signedUrlExpiryHours);
 
         UploadSession session = createSession(entityType, entityId, userUuid,
-                request.fileName(), request.fileSize(), request.contentType(),
-                storagePath, signedUrl);
+                fileName, storagePath, signedUrl);
 
         log.info("Created upload session: id={}, entityType=USER, entityId={}, path={}",
                 session.getId(), entityId, storagePath);
@@ -87,7 +89,7 @@ public class UploadService {
     }
 
     @Transactional
-    public UploadResponse requestProductUpload(String userId, UUID productId, ProductImageUploadRequest request) {
+    public UploadResponse requestProductUpload(String userId, UUID productId) {
         UUID userUuid = UUID.fromString(userId);
         EntityType entityType = EntityType.PRODUCT;
 
@@ -97,17 +99,15 @@ public class UploadService {
             throw new AccessDeniedException("You can only upload images for your own products");
         }
 
-        validateFileType(request.contentType());
-        validateFileSize(request.fileSize());
         checkProductQuota(productId);
 
-        String storagePath = buildStoragePath(entityType, productId, request.fileName());
+        String fileName = "image-" + UUID.randomUUID();
+        String storagePath = buildStoragePath(entityType, productId, fileName);
         SupabaseStorageClient.SignedUploadUrl signedUrl =
                 storageClient.createSignedUploadUrl(storagePath, signedUrlExpiryHours);
 
         UploadSession session = createSession(entityType, productId, userUuid,
-                request.fileName(), request.fileSize(), request.contentType(),
-                storagePath, signedUrl);
+                fileName, storagePath, signedUrl);
 
         log.info("Created upload session: id={}, entityType=PRODUCT, entityId={}, path={}",
                 session.getId(), productId, storagePath);
@@ -135,6 +135,20 @@ public class UploadService {
             return;
         }
 
+        try {
+            validateFileType(record.mimetype());
+            Object sizeObj = record.metadata() != null ? record.metadata().get("size") : null;
+            if (sizeObj != null) {
+                validateFileSize(Long.valueOf(sizeObj.toString()));
+            }
+        } catch (BusinessException e) {
+            session.setStatus(UploadStatus.FAILED);
+            session.setUpdatedAt(Instant.now());
+            uploadSessionRepository.save(session);
+            log.warn("Upload rejected: id={}, reason={}", session.getId(), e.getMessage());
+            return;
+        }
+
         String fileUrl = storageProperties.projectUrl()
                 + "/storage/v1/object/public/"
                 + storageProperties.bucketName()
@@ -156,15 +170,13 @@ public class UploadService {
     }
 
     private UploadSession createSession(EntityType entityType, UUID entityId, UUID uploadedBy,
-                                        String fileName, Long fileSize, String contentType,
-                                        String storagePath, SupabaseStorageClient.SignedUploadUrl signedUrl) {
+                                        String fileName, String storagePath,
+                                        SupabaseStorageClient.SignedUploadUrl signedUrl) {
         UploadSession session = new UploadSession();
         session.setEntityType(entityType);
         session.setEntityId(entityId);
         session.setUploadedBy(uploadedBy);
         session.setFileName(fileName);
-        session.setFileSize(fileSize);
-        session.setContentType(contentType);
         session.setStoragePath(storagePath);
         session.setSupabaseToken(signedUrl.token());
         session.setStatus(UploadStatus.PENDING);
@@ -190,6 +202,11 @@ public class UploadService {
         } else {
             insertNewImage(session, fileUrl, record);
         }
+
+        userRepository.findById(session.getEntityId()).ifPresent(user -> {
+            user.setProfilePictureUrl(fileUrl);
+            userRepository.save(user);
+        });
     }
 
     private void handleProductImageInsert(UploadSession session, String fileUrl, StorageRecord record) {

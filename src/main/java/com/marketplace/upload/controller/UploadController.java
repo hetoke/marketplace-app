@@ -1,18 +1,14 @@
 package com.marketplace.upload.controller;
 
 import com.marketplace.shared.dto.ApiResponse;
-import com.marketplace.upload.dto.AvatarUploadRequest;
-import com.marketplace.upload.dto.ProductImageUploadRequest;
 import com.marketplace.upload.dto.UploadResponse;
 import com.marketplace.upload.service.UploadService;
-import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,21 +20,19 @@ public class UploadController {
         this.uploadService = uploadService;
     }
 
-    @PostMapping("/api/v1/users/avatar")
-    public ResponseEntity<ApiResponse<UploadResponse>> requestUserAvatar(
-            @Valid @RequestBody AvatarUploadRequest request) {
+    @GetMapping("/api/v1/users/avatar/upload-url")
+    public ResponseEntity<ApiResponse<UploadResponse>> requestUserAvatar() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        UploadResponse response = uploadService.requestUserUpload(userId, request);
+        UploadResponse response = uploadService.requestUserUpload(userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Upload session created", response));
     }
 
-    @PostMapping("/api/v1/products/{productId}/images")
+    @GetMapping("/api/v1/products/{productId}/images/upload-url")
     public ResponseEntity<ApiResponse<UploadResponse>> requestProductImages(
-            @PathVariable UUID productId,
-            @Valid @RequestBody ProductImageUploadRequest request) {
+            @PathVariable UUID productId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        UploadResponse response = uploadService.requestProductUpload(userId, productId, request);
+        UploadResponse response = uploadService.requestProductUpload(userId, productId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Upload session created", response));
     }

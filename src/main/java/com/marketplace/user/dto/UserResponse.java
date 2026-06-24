@@ -1,5 +1,6 @@
 package com.marketplace.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.marketplace.user.model.User;
 import java.time.Instant;
 
@@ -7,7 +8,7 @@ public record UserResponse(
 		String id,
 		String email,
 		String displayName,
-		String profilePictureUrl,
+		@JsonInclude(JsonInclude.Include.ALWAYS) String profilePictureUrl,
 		User.Role role,
 		boolean isVerified,
 		Instant createdAt

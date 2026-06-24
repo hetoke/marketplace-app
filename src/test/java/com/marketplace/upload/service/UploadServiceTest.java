@@ -20,8 +20,8 @@ import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
-import com.marketplace.upload.dto.AvatarUploadRequest;
-import com.marketplace.upload.dto.ProductImageUploadRequest;
+import com.marketplace.user.model.User;
+import com.marketplace.user.repository.UserRepository;
 import com.marketplace.upload.dto.UploadResponse;
 import com.marketplace.upload.model.UploadSession;
 import com.marketplace.upload.model.UploadStatus;
@@ -54,6 +54,9 @@ class UploadServiceTest {
 	private ProductRepository productRepository;
 
 	@Mock
+	private UserRepository userRepository;
+
+	@Mock
 	private SupabaseStorageClient storageClient;
 
 	@Mock
@@ -77,15 +80,13 @@ class UploadServiceTest {
 
 	@Test
 	void requestUserUpload_success() {
-		AvatarUploadRequest request = new AvatarUploadRequest("avatar.jpg", 1024L, "image/jpeg");
-
 		when(imageRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc(EntityType.USER, USER_ID))
 				.thenReturn(List.of());
 		when(storageClient.createSignedUploadUrl(anyString(), anyInt()))
 				.thenReturn(new SignedUploadUrl("https://supabase.co/signed", "token-123", Instant.now().plusSeconds(7200)));
 		when(uploadSessionRepository.save(any(UploadSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UploadResponse response = uploadService.requestUserUpload(USER_ID.toString(), request);
+		UploadResponse response = uploadService.requestUserUpload(USER_ID.toString());
 
 		assertThat(response.uploadUrl()).contains("signed");
 		assertThat(response.token()).isEqualTo("token-123");
@@ -94,15 +95,13 @@ class UploadServiceTest {
 
 	@Test
 	void requestUserUpload_sessionStoresJwtUserId() {
-		AvatarUploadRequest request = new AvatarUploadRequest("avatar.jpg", 1024L, "image/jpeg");
-
 		when(imageRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc(EntityType.USER, USER_ID))
 				.thenReturn(List.of());
 		when(storageClient.createSignedUploadUrl(anyString(), anyInt()))
 				.thenReturn(new SignedUploadUrl("https://supabase.co/signed", "token-xyz", Instant.now().plusSeconds(7200)));
 		when(uploadSessionRepository.save(any(UploadSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		uploadService.requestUserUpload(USER_ID.toString(), request);
+		uploadService.requestUserUpload(USER_ID.toString());
 
 		ArgumentCaptor<UploadSession> captor = ArgumentCaptor.forClass(UploadSession.class);
 		verify(uploadSessionRepository).save(captor.capture());
@@ -112,24 +111,7 @@ class UploadServiceTest {
 		assertThat(saved.getEntityId()).isEqualTo(USER_ID);
 		assertThat(saved.getUploadedBy()).isEqualTo(USER_ID);
 		assertThat(saved.getStoragePath()).startsWith("users/" + USER_ID + "/");
-	}
-
-	@Test
-	void requestUserUpload_invalidFileType_throwsBusinessException() {
-		AvatarUploadRequest request = new AvatarUploadRequest("file.pdf", 1024L, "application/pdf");
-
-		assertThatThrownBy(() -> uploadService.requestUserUpload(USER_ID.toString(), request))
-				.isInstanceOf(BusinessException.class)
-				.hasMessageContaining("File type not allowed");
-	}
-
-	@Test
-	void requestUserUpload_fileTooLarge_throwsBusinessException() {
-		AvatarUploadRequest request = new AvatarUploadRequest("big.jpg", 10_000_000L, "image/jpeg");
-
-		assertThatThrownBy(() -> uploadService.requestUserUpload(USER_ID.toString(), request))
-				.isInstanceOf(BusinessException.class)
-				.hasMessageContaining("File size exceeds maximum");
+		assertThat(saved.getFileName()).isEqualTo("avatar");
 	}
 
 	// ==================== PRODUCT IMAGE UPLOAD ====================
@@ -140,8 +122,6 @@ class UploadServiceTest {
 		product.setId(PRODUCT_ID);
 		product.setSellerId(USER_ID);
 
-		ProductImageUploadRequest request = new ProductImageUploadRequest("img.jpg", 2048L, "image/png");
-
 		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
 		when(uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
 				EntityType.PRODUCT, PRODUCT_ID, UploadStatus.COMPLETED)).thenReturn(0L);
@@ -149,7 +129,7 @@ class UploadServiceTest {
 				.thenReturn(new SignedUploadUrl("https://supabase.co/signed", "token-456", Instant.now().plusSeconds(7200)));
 		when(uploadSessionRepository.save(any(UploadSession.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UploadResponse response = uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID, request);
+		UploadResponse response = uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID);
 
 		assertThat(response.token()).isEqualTo("token-456");
 	}
@@ -161,22 +141,18 @@ class UploadServiceTest {
 		product.setId(PRODUCT_ID);
 		product.setSellerId(otherSeller);
 
-		ProductImageUploadRequest request = new ProductImageUploadRequest("img.jpg", 2048L, "image/png");
-
 		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
 
-		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID, request))
+		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID))
 				.isInstanceOf(AccessDeniedException.class)
 				.hasMessage("You can only upload images for your own products");
 	}
 
 	@Test
 	void requestProductUpload_productNotFound_throwsResourceNotFound() {
-		ProductImageUploadRequest request = new ProductImageUploadRequest("img.jpg", 2048L, "image/png");
-
 		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.empty());
 
-		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID, request))
+		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID))
 				.isInstanceOf(ResourceNotFoundException.class)
 				.hasMessageContaining("Product");
 	}
@@ -187,13 +163,11 @@ class UploadServiceTest {
 		product.setId(PRODUCT_ID);
 		product.setSellerId(USER_ID);
 
-		ProductImageUploadRequest request = new ProductImageUploadRequest("img.jpg", 1024L, "image/jpeg");
-
 		when(productRepository.findById(PRODUCT_ID)).thenReturn(Optional.of(product));
 		when(uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
 				EntityType.PRODUCT, PRODUCT_ID, UploadStatus.COMPLETED)).thenReturn(10L);
 
-		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID, request))
+		assertThatThrownBy(() -> uploadService.requestProductUpload(USER_ID.toString(), PRODUCT_ID))
 				.isInstanceOf(BusinessException.class)
 				.hasMessageContaining("Product image limit reached");
 	}
@@ -213,10 +187,17 @@ class UploadServiceTest {
 		when(storageProperties.projectUrl()).thenReturn("https://placeholder.supabase.co");
 		when(storageProperties.bucketName()).thenReturn("marketplace-images");
 
+		User user = new User();
+		user.setId(USER_ID);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
 		uploadService.completeUploadFromWebhook(session.getStoragePath(), record);
 
 		verify(imageRepository).save(any(Image.class));
 		assertThat(session.getStatus()).isEqualTo(UploadStatus.COMPLETED);
+		ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+		verify(userRepository).save(userCaptor.capture());
+		assertThat(userCaptor.getValue().getProfilePictureUrl()).contains("placeholder.supabase.co");
 	}
 
 	@Test
@@ -250,6 +231,36 @@ class UploadServiceTest {
 	}
 
 	@Test
+	void completeUploadFromWebhook_invalidFileType_marksFailed() {
+		UploadSession session = createPendingSession();
+		StorageRecord record = new StorageRecord("test-id", session.getStoragePath(),
+				"marketplace-images", "application/pdf", Map.of("size", 1024));
+
+		when(uploadSessionRepository.findByStoragePathAndStatus(
+				session.getStoragePath(), UploadStatus.PENDING)).thenReturn(Optional.of(session));
+
+		uploadService.completeUploadFromWebhook(session.getStoragePath(), record);
+
+		assertThat(session.getStatus()).isEqualTo(UploadStatus.FAILED);
+		verify(imageRepository, never()).save(any());
+	}
+
+	@Test
+	void completeUploadFromWebhook_fileTooLarge_marksFailed() {
+		UploadSession session = createPendingSession();
+		StorageRecord record = new StorageRecord("test-id", session.getStoragePath(),
+				"marketplace-images", "image/jpeg", Map.of("size", 10_000_000));
+
+		when(uploadSessionRepository.findByStoragePathAndStatus(
+				session.getStoragePath(), UploadStatus.PENDING)).thenReturn(Optional.of(session));
+
+		uploadService.completeUploadFromWebhook(session.getStoragePath(), record);
+
+		assertThat(session.getStatus()).isEqualTo(UploadStatus.FAILED);
+		verify(imageRepository, never()).save(any());
+	}
+
+	@Test
 	void completeUploadFromWebhook_userUpsert_replacesExistingImage() {
 		UploadSession session = createPendingSession();
 		Image existingImage = new Image();
@@ -266,6 +277,10 @@ class UploadServiceTest {
 		when(storageProperties.projectUrl()).thenReturn("https://placeholder.supabase.co");
 		when(storageProperties.bucketName()).thenReturn("marketplace-images");
 
+		User user = new User();
+		user.setId(USER_ID);
+		when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+
 		uploadService.completeUploadFromWebhook(session.getStoragePath(), record);
 
 		verify(imageRepository).save(existingImage);
@@ -280,10 +295,8 @@ class UploadServiceTest {
 		session.setEntityType(EntityType.USER);
 		session.setEntityId(USER_ID);
 		session.setUploadedBy(USER_ID);
-		session.setFileName("avatar.jpg");
-		session.setFileSize(1024L);
-		session.setContentType("image/jpeg");
-		session.setStoragePath("users/" + USER_ID + "/avatar.jpg");
+		session.setFileName("avatar");
+		session.setStoragePath("users/" + USER_ID + "/avatar");
 		session.setSupabaseToken("token-123");
 		session.setStatus(UploadStatus.PENDING);
 		session.setExpiresAt(Instant.now().plusSeconds(7200));

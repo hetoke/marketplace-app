@@ -29,14 +29,13 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) throws IOException {
-		ErrorResponse body = new ErrorResponse(
-				HttpStatus.UNAUTHORIZED.value(),
-				HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-				"Authentication required",
-				request.getRequestURI(),
-				Instant.now(),
-				null
-		);
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.UNAUTHORIZED.value())
+				.error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
+				.message("Authentication required")
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
 		response.setStatus(HttpStatus.UNAUTHORIZED.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		objectMapper.writeValue(response.getOutputStream(), body);

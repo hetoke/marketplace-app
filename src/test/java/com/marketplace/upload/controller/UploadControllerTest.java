@@ -1,14 +1,12 @@
 package com.marketplace.upload.controller;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.GlobalExceptionHandler;
@@ -23,7 +21,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,7 +37,6 @@ class UploadControllerTest {
 	@InjectMocks
 	private UploadController uploadController;
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final String userId = UUID.randomUUID().toString();
 
 	@BeforeEach
@@ -63,35 +59,13 @@ class UploadControllerTest {
 				"token-abc",
 				Instant.now().plusSeconds(7200));
 
-		when(uploadService.requestUserUpload(anyString(), any())).thenReturn(response);
+		when(uploadService.requestUserUpload(anyString())).thenReturn(response);
 
-		mockMvc.perform(post("/api/v1/users/avatar")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileName\":\"avatar.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+		mockMvc.perform(get("/api/v1/users/avatar/upload-url"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.message").value("Upload session created"))
 				.andExpect(jsonPath("$.data.uploadUrl").value("https://supabase.co/signed-url"))
 				.andExpect(jsonPath("$.data.token").value("token-abc"));
-	}
-
-	@Test
-	void requestUserAvatar_fileTypeNotAllowed_returns400() throws Exception {
-		when(uploadService.requestUserUpload(anyString(), any()))
-				.thenThrow(new BusinessException("File type not allowed: application/pdf"));
-
-		mockMvc.perform(post("/api/v1/users/avatar")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileName\":\"doc.pdf\",\"fileSize\":1024,\"contentType\":\"application/pdf\"}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.message").value("File type not allowed: application/pdf"));
-	}
-
-	@Test
-	void requestUserAvatar_missingFileName_returns400() throws Exception {
-		mockMvc.perform(post("/api/v1/users/avatar")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
-				.andExpect(status().isBadRequest());
 	}
 
 	// ==================== PRODUCT IMAGES ====================
@@ -105,11 +79,9 @@ class UploadControllerTest {
 				Instant.now().plusSeconds(7200));
 
 		UUID productId = UUID.randomUUID();
-		when(uploadService.requestProductUpload(anyString(), eq(productId), any())).thenReturn(response);
+		when(uploadService.requestProductUpload(anyString(), eq(productId))).thenReturn(response);
 
-		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileName\":\"img.jpg\",\"fileSize\":2048,\"contentType\":\"image/png\"}"))
+		mockMvc.perform(get("/api/v1/products/" + productId + "/images/upload-url"))
 				.andExpect(status().isCreated())
 				.andExpect(jsonPath("$.message").value("Upload session created"))
 				.andExpect(jsonPath("$.data.token").value("token-456"));
@@ -118,34 +90,20 @@ class UploadControllerTest {
 	@Test
 	void requestProductImages_productNotFound_returns404() throws Exception {
 		UUID productId = UUID.randomUUID();
-		when(uploadService.requestProductUpload(anyString(), eq(productId), any()))
+		when(uploadService.requestProductUpload(anyString(), eq(productId)))
 				.thenThrow(new ResourceNotFoundException("Product", "id", productId));
 
-		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileName\":\"img.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+		mockMvc.perform(get("/api/v1/products/" + productId + "/images/upload-url"))
 				.andExpect(status().isNotFound());
 	}
 
 	@Test
 	void requestProductImages_notSeller_returns403() throws Exception {
 		UUID productId = UUID.randomUUID();
-		when(uploadService.requestProductUpload(anyString(), eq(productId), any()))
+		when(uploadService.requestProductUpload(anyString(), eq(productId)))
 				.thenThrow(new AccessDeniedException("You can only upload images for your own products"));
 
-		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileName\":\"img.jpg\",\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
+		mockMvc.perform(get("/api/v1/products/" + productId + "/images/upload-url"))
 				.andExpect(status().isForbidden());
-	}
-
-	@Test
-	void requestProductImages_missingFileName_returns400() throws Exception {
-		UUID productId = UUID.randomUUID();
-
-		mockMvc.perform(post("/api/v1/products/" + productId + "/images")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"fileSize\":1024,\"contentType\":\"image/jpeg\"}"))
-				.andExpect(status().isBadRequest());
 	}
 }

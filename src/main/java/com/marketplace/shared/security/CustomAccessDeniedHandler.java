@@ -29,14 +29,13 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 	@Override
 	public void handle(HttpServletRequest request, HttpServletResponse response,
 			AccessDeniedException accessDeniedException) throws IOException {
-		ErrorResponse body = new ErrorResponse(
-				HttpStatus.FORBIDDEN.value(),
-				HttpStatus.FORBIDDEN.getReasonPhrase(),
-				"Access denied",
-				request.getRequestURI(),
-				Instant.now(),
-				null
-		);
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.FORBIDDEN.value())
+				.error(HttpStatus.FORBIDDEN.getReasonPhrase())
+				.message("Access denied")
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
 		response.setStatus(HttpStatus.FORBIDDEN.value());
 		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
 		objectMapper.writeValue(response.getOutputStream(), body);

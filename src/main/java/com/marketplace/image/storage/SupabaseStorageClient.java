@@ -36,7 +36,7 @@ public class SupabaseStorageClient {
     public SignedUploadUrl createSignedUploadUrl(String path, int expiresInHours) {
         try {
             String url = properties.projectUrl()
-                    + "/storage/v1/object/sign/"
+                    + "/storage/v1/object/upload/sign/"
                     + properties.bucketName()
                     + "/"
                     + path;
@@ -54,13 +54,25 @@ public class SupabaseStorageClient {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                log.error("Supabase returned status {}: {}", response.statusCode(), response.body());
+                throw new RuntimeException("Supabase returned HTTP " + response.statusCode());
+            }
+
             JsonNode json = objectMapper.readTree(response.body());
 
-            String signedUrl = json.get("signedURL").asText();
+            if (json.get("url") == null || json.get("token") == null) {
+                log.error("Unexpected Supabase response: {}", response.body());
+                throw new RuntimeException("Unexpected Supabase response format");
+            }
+
+            String uploadUrl = json.get("url").asText();
             String token = json.get("token").asText();
             Instant expiresAt = Instant.now().plus(expiresInHours, ChronoUnit.HOURS);
 
-            String fullUrl = properties.projectUrl() + signedUrl;
+            String fullUrl = uploadUrl.startsWith("http") ? uploadUrl : properties.publicUrl() + uploadUrl;
+            log.info("Created signed upload URL: {}", fullUrl);
             return new SignedUploadUrl(fullUrl, token, expiresAt);
         } catch (Exception e) {
             log.error("Failed to create signed upload URL for path: {}", path, e);

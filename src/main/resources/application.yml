@@ -10,7 +10,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: validate
     open-in-view: false
     properties:
       hibernate:
@@ -45,6 +45,7 @@ app:
     max-page-size: 100
   supabase:
     project-url: ${SUPABASE_PROJECT_URL:https://placeholder.supabase.co}
+    public-url: ${SUPABASE_PUBLIC_URL:${SUPABASE_PROJECT_URL:https://placeholder.supabase.co}}
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:placeholder}
     bucket-name: ${SUPABASE_BUCKET_NAME:marketplace-images}
   webhook:
