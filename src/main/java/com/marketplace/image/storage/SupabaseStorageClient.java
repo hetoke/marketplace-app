@@ -20,7 +20,9 @@ import org.springframework.stereotype.Component;
 @EnableConfigurationProperties(SupabaseStorageProperties.class)
 public class SupabaseStorageClient {
 
-    private static final Logger log = LoggerFactory.getLogger(SupabaseStorageClient.class);
+    private static final Logger log = LoggerFactory.getLogger(
+        SupabaseStorageClient.class
+    );
 
     private final HttpClient httpClient;
     private final SupabaseStorageProperties properties;
@@ -31,71 +33,121 @@ public class SupabaseStorageClient {
         this.httpClient = HttpClient.newHttpClient();
     }
 
-    public record SignedUploadUrl(String uploadUrl, String token, Instant expiresAt) {}
+    public record SignedUploadUrl(
+        String uploadUrl,
+        String token,
+        Instant expiresAt
+    ) {}
 
-    public SignedUploadUrl createSignedUploadUrl(String path, int expiresInHours) {
+    public SignedUploadUrl createSignedUploadUrl(
+        String path,
+        int expiresInHours
+    ) {
         try {
-            String url = properties.projectUrl()
-                    + "/storage/v1/object/upload/sign/"
-                    + properties.bucketName()
-                    + "/"
-                    + path;
+            String url =
+                properties.projectUrl() +
+                "/storage/v1/object/upload/sign/" +
+                properties.bucketName() +
+                "/" +
+                path;
 
             String body = objectMapper.writeValueAsString(
-                    Map.of("expiresIn", expiresInHours * 3600));
+                Map.of("expiresIn", expiresInHours * 3600)
+            );
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", properties.serviceRoleKey())
-                    .header("Authorization", "Bearer " + properties.serviceRoleKey())
-                    .header("x-upsert", "true")
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("apikey", properties.serviceRoleKey())
+                .header(
+                    "Authorization",
+                    "Bearer " + properties.serviceRoleKey()
+                )
+                .header("x-upsert", "true")
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = httpClient.send(
+                request,
+                HttpResponse.BodyHandlers.ofString()
+            );
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.error("Supabase returned status {}: {}", response.statusCode(), response.body());
-                throw new RuntimeException("Supabase returned HTTP " + response.statusCode());
+                log.error(
+                    "Supabase returned status {}: {}",
+                    response.statusCode(),
+                    response.body()
+                );
+                throw new RuntimeException(
+                    "Supabase returned HTTP " + response.statusCode()
+                );
             }
 
             JsonNode json = objectMapper.readTree(response.body());
 
             if (json.get("url") == null || json.get("token") == null) {
                 log.error("Unexpected Supabase response: {}", response.body());
-                throw new RuntimeException("Unexpected Supabase response format");
+                throw new RuntimeException(
+                    "Unexpected Supabase response format"
+                );
             }
 
             String uploadUrl = json.get("url").asText();
             String token = json.get("token").asText();
-            Instant expiresAt = Instant.now().plus(expiresInHours, ChronoUnit.HOURS);
+            Instant expiresAt = Instant.now().plus(
+                expiresInHours,
+                ChronoUnit.HOURS
+            );
 
-            String fullUrl = uploadUrl.startsWith("http") ? uploadUrl : properties.publicUrl() + uploadUrl;
+            String fullUrl = uploadUrl.startsWith("http")
+                ? uploadUrl
+                : properties.publicUrl() + "/storage/v1/" + uploadUrl;
             log.info("Created signed upload URL: {}", fullUrl);
             return new SignedUploadUrl(fullUrl, token, expiresAt);
         } catch (Exception e) {
-            log.error("Failed to create signed upload URL for path: {}", path, e);
+            log.error(
+                "Failed to create signed upload URL for path: {}",
+                path,
+                e
+            );
             throw new RuntimeException("Failed to create signed upload URL", e);
         }
     }
 
     public List<StorageFile> listFiles(String prefix, int limit, int offset) {
         try {
-            String url = properties.projectUrl() + "/storage/v1/object/list/" + properties.bucketName();
-            String body = objectMapper.writeValueAsString(new ListFilesRequest(prefix, limit, offset,
-                    new SortBy("name", "asc")));
+            String url =
+                properties.projectUrl() +
+                "/storage/v1/object/list/" +
+                properties.bucketName();
+            String body = objectMapper.writeValueAsString(
+                new ListFilesRequest(
+                    prefix,
+                    limit,
+                    offset,
+                    new SortBy("name", "asc")
+                )
+            );
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", properties.serviceRoleKey())
-                    .header("Authorization", "Bearer " + properties.serviceRoleKey())
-                    .POST(HttpRequest.BodyPublishers.ofString(body))
-                    .build();
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("apikey", properties.serviceRoleKey())
+                .header(
+                    "Authorization",
+                    "Bearer " + properties.serviceRoleKey()
+                )
+                .POST(HttpRequest.BodyPublishers.ofString(body))
+                .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return objectMapper.readValue(response.body(), new TypeReference<>() {});
+            HttpResponse<String> response = httpClient.send(
+                request,
+                HttpResponse.BodyHandlers.ofString()
+            );
+            return objectMapper.readValue(
+                response.body(),
+                new TypeReference<>() {}
+            );
         } catch (Exception e) {
             log.error("Failed to list files from Supabase storage", e);
             return List.of();
@@ -109,15 +161,23 @@ public class SupabaseStorageClient {
 
         try {
             String pathsParam = String.join(",", paths);
-            String url = properties.projectUrl() + "/storage/v1/object/" + properties.bucketName() + "/" + pathsParam;
+            String url =
+                properties.projectUrl() +
+                "/storage/v1/object/" +
+                properties.bucketName() +
+                "/" +
+                pathsParam;
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", properties.serviceRoleKey())
-                    .header("Authorization", "Bearer " + properties.serviceRoleKey())
-                    .DELETE()
-                    .build();
+                .uri(URI.create(url))
+                .header("Content-Type", "application/json")
+                .header("apikey", properties.serviceRoleKey())
+                .header(
+                    "Authorization",
+                    "Bearer " + properties.serviceRoleKey()
+                )
+                .DELETE()
+                .build();
 
             httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             log.debug("Deleted {} files from Supabase storage", paths.size());
@@ -126,9 +186,19 @@ public class SupabaseStorageClient {
         }
     }
 
-    public record StorageFile(String name, String id, String updated_at, Object metadata) {}
+    public record StorageFile(
+        String name,
+        String id,
+        String updated_at,
+        Object metadata
+    ) {}
 
-    private record ListFilesRequest(String prefix, int limit, int offset, SortBy sortBy) {}
+    private record ListFilesRequest(
+        String prefix,
+        int limit,
+        int offset,
+        SortBy sortBy
+    ) {}
 
     private record SortBy(String column, String order) {}
 }

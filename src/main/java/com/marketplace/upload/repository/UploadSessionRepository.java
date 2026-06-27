@@ -7,9 +7,17 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UploadSessionRepository extends JpaRepository<UploadSession, UUID> {
+public interface UploadSessionRepository
+    extends JpaRepository<UploadSession, UUID>
+{
+    Optional<UploadSession> findFirstByStoragePathAndStatusOrderByCreatedAtDesc(
+        String storagePath,
+        UploadStatus status
+    );
 
-    Optional<UploadSession> findByStoragePathAndStatus(String storagePath, UploadStatus status);
-
-    long countByEntityTypeAndEntityIdAndStatus(EntityType entityType, UUID entityId, UploadStatus status);
+    long countByEntityTypeAndEntityIdAndStatus(
+        EntityType entityType,
+        UUID entityId,
+        UploadStatus status
+    );
 }

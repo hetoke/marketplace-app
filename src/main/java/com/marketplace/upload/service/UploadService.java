@@ -10,13 +10,12 @@ import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
-import com.marketplace.user.model.User;
-import com.marketplace.user.repository.UserRepository;
-
 import com.marketplace.upload.dto.UploadResponse;
 import com.marketplace.upload.model.UploadSession;
 import com.marketplace.upload.model.UploadStatus;
 import com.marketplace.upload.repository.UploadSessionRepository;
+import com.marketplace.user.model.User;
+import com.marketplace.user.repository.UserRepository;
 import com.marketplace.webhook.dto.StorageWebhookRequest.StorageRecord;
 import java.time.Instant;
 import java.util.List;
@@ -31,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class UploadService {
 
-    private static final Logger log = LoggerFactory.getLogger(UploadService.class);
+    private static final Logger log = LoggerFactory.getLogger(
+        UploadService.class
+    );
 
     private final UploadSessionRepository uploadSessionRepository;
     private final ImageRepository imageRepository;
@@ -46,18 +47,22 @@ public class UploadService {
     @Value("${app.upload.max-file-size-bytes:5242880}")
     private long maxFileSizeBytes;
 
-    @Value("${app.upload.allowed-content-types:image/jpeg,image/png,image/webp,image/gif}")
+    @Value(
+        "${app.upload.allowed-content-types:image/jpeg,image/png,image/webp,image/gif}"
+    )
     private String allowedContentTypes;
 
     @Value("${app.upload.signed-url-expiry-hours:2}")
     private int signedUrlExpiryHours;
 
-    public UploadService(UploadSessionRepository uploadSessionRepository,
-                         ImageRepository imageRepository,
-                         ProductRepository productRepository,
-                         UserRepository userRepository,
-                         SupabaseStorageClient storageClient,
-                         SupabaseStorageProperties storageProperties) {
+    public UploadService(
+        UploadSessionRepository uploadSessionRepository,
+        ImageRepository imageRepository,
+        ProductRepository productRepository,
+        UserRepository userRepository,
+        SupabaseStorageClient storageClient,
+        SupabaseStorageProperties storageProperties
+    ) {
         this.uploadSessionRepository = uploadSessionRepository;
         this.imageRepository = imageRepository;
         this.productRepository = productRepository;
@@ -77,15 +82,33 @@ public class UploadService {
         String fileName = "avatar";
         String storagePath = buildStoragePath(entityType, entityId, fileName);
         SupabaseStorageClient.SignedUploadUrl signedUrl =
-                storageClient.createSignedUploadUrl(storagePath, signedUrlExpiryHours);
+            storageClient.createSignedUploadUrl(
+                storagePath,
+                signedUrlExpiryHours
+            );
 
-        UploadSession session = createSession(entityType, entityId, userUuid,
-                fileName, storagePath, signedUrl);
+        UploadSession session = createSession(
+            entityType,
+            entityId,
+            userUuid,
+            fileName,
+            storagePath,
+            signedUrl
+        );
 
-        log.info("Created upload session: id={}, entityType=USER, entityId={}, path={}",
-                session.getId(), entityId, storagePath);
+        log.info(
+            "Created upload session: id={}, entityType=USER, entityId={}, path={}",
+            session.getId(),
+            entityId,
+            storagePath
+        );
 
-        return new UploadResponse(session.getId(), signedUrl.uploadUrl(), signedUrl.token(), signedUrl.expiresAt());
+        return new UploadResponse(
+            session.getId(),
+            signedUrl.uploadUrl(),
+            signedUrl.token(),
+            signedUrl.expiresAt()
+        );
     }
 
     @Transactional
@@ -93,10 +116,15 @@ public class UploadService {
         UUID userUuid = UUID.fromString(userId);
         EntityType entityType = EntityType.PRODUCT;
 
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        Product product = productRepository
+            .findById(productId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product", "id", productId)
+            );
         if (!product.getSellerId().equals(userUuid)) {
-            throw new AccessDeniedException("You can only upload images for your own products");
+            throw new AccessDeniedException(
+                "You can only upload images for your own products"
+            );
         }
 
         checkProductQuota(productId);
@@ -104,24 +132,51 @@ public class UploadService {
         String fileName = "image-" + UUID.randomUUID();
         String storagePath = buildStoragePath(entityType, productId, fileName);
         SupabaseStorageClient.SignedUploadUrl signedUrl =
-                storageClient.createSignedUploadUrl(storagePath, signedUrlExpiryHours);
+            storageClient.createSignedUploadUrl(
+                storagePath,
+                signedUrlExpiryHours
+            );
 
-        UploadSession session = createSession(entityType, productId, userUuid,
-                fileName, storagePath, signedUrl);
+        UploadSession session = createSession(
+            entityType,
+            productId,
+            userUuid,
+            fileName,
+            storagePath,
+            signedUrl
+        );
 
-        log.info("Created upload session: id={}, entityType=PRODUCT, entityId={}, path={}",
-                session.getId(), productId, storagePath);
+        log.info(
+            "Created upload session: id={}, entityType=PRODUCT, entityId={}, path={}",
+            session.getId(),
+            productId,
+            storagePath
+        );
 
-        return new UploadResponse(session.getId(), signedUrl.uploadUrl(), signedUrl.token(), signedUrl.expiresAt());
+        return new UploadResponse(
+            session.getId(),
+            signedUrl.uploadUrl(),
+            signedUrl.token(),
+            signedUrl.expiresAt()
+        );
     }
 
     @Transactional
-    public void completeUploadFromWebhook(String storagePath, StorageRecord record) {
+    public void completeUploadFromWebhook(
+        String storagePath,
+        StorageRecord record
+    ) {
         Optional<UploadSession> sessionOpt =
-                uploadSessionRepository.findByStoragePathAndStatus(storagePath, UploadStatus.PENDING);
+            uploadSessionRepository.findFirstByStoragePathAndStatusOrderByCreatedAtDesc(
+                storagePath,
+                UploadStatus.PENDING
+            );
 
         if (sessionOpt.isEmpty()) {
-            log.warn("No pending upload session found for storage path: {}", storagePath);
+            log.warn(
+                "No pending upload session found for storage path: {}",
+                storagePath
+            );
             return;
         }
 
@@ -137,7 +192,10 @@ public class UploadService {
 
         try {
             validateFileType(record.mimetype());
-            Object sizeObj = record.metadata() != null ? record.metadata().get("size") : null;
+            Object sizeObj =
+                record.metadata() != null
+                    ? record.metadata().get("size")
+                    : null;
             if (sizeObj != null) {
                 validateFileSize(Long.valueOf(sizeObj.toString()));
             }
@@ -145,15 +203,20 @@ public class UploadService {
             session.setStatus(UploadStatus.FAILED);
             session.setUpdatedAt(Instant.now());
             uploadSessionRepository.save(session);
-            log.warn("Upload rejected: id={}, reason={}", session.getId(), e.getMessage());
+            log.warn(
+                "Upload rejected: id={}, reason={}",
+                session.getId(),
+                e.getMessage()
+            );
             return;
         }
 
-        String fileUrl = storageProperties.projectUrl()
-                + "/storage/v1/object/public/"
-                + storageProperties.bucketName()
-                + "/"
-                + storagePath;
+        String fileUrl =
+            storageProperties.publicUrl() +
+            "/storage/v1/object/public/" +
+            storageProperties.bucketName() +
+            "/" +
+            storagePath;
 
         if (session.getEntityType() == EntityType.USER) {
             handleUserImageUpsert(session, fileUrl, record);
@@ -165,13 +228,22 @@ public class UploadService {
         session.setUpdatedAt(Instant.now());
         uploadSessionRepository.save(session);
 
-        log.info("Completed upload session: id={}, entityType={}, entityId={}",
-                session.getId(), session.getEntityType(), session.getEntityId());
+        log.info(
+            "Completed upload session: id={}, entityType={}, entityId={}",
+            session.getId(),
+            session.getEntityType(),
+            session.getEntityId()
+        );
     }
 
-    private UploadSession createSession(EntityType entityType, UUID entityId, UUID uploadedBy,
-                                        String fileName, String storagePath,
-                                        SupabaseStorageClient.SignedUploadUrl signedUrl) {
+    private UploadSession createSession(
+        EntityType entityType,
+        UUID entityId,
+        UUID uploadedBy,
+        String fileName,
+        String storagePath,
+        SupabaseStorageClient.SignedUploadUrl signedUrl
+    ) {
         UploadSession session = new UploadSession();
         session.setEntityType(entityType);
         session.setEntityId(entityId);
@@ -185,18 +257,28 @@ public class UploadService {
         return session;
     }
 
-    private void handleUserImageUpsert(UploadSession session, String fileUrl, StorageRecord record) {
-        Optional<Image> existing = imageRepository
-                .findByEntityTypeAndEntityIdAndUploadedByOrderByCreatedAtAsc(
-                        EntityType.USER, session.getEntityId(), session.getUploadedBy());
+    private void handleUserImageUpsert(
+        UploadSession session,
+        String fileUrl,
+        StorageRecord record
+    ) {
+        Optional<Image> existing =
+            imageRepository.findByEntityTypeAndEntityIdAndUploadedByOrderByCreatedAtAsc(
+                EntityType.USER,
+                session.getEntityId(),
+                session.getUploadedBy()
+            );
 
         if (existing.isPresent()) {
             Image image = existing.get();
             image.setFileUrl(fileUrl);
             image.setFileName(extractFileName(session.getStoragePath()));
-            image.setFileSize(record.metadata() != null && record.metadata().get("size") != null
+            image.setFileSize(
+                record.metadata() != null &&
+                    record.metadata().get("size") != null
                     ? Long.valueOf(record.metadata().get("size").toString())
-                    : session.getFileSize());
+                    : session.getFileSize()
+            );
             image.setContentType(record.mimetype());
             imageRepository.save(image);
         } else {
@@ -209,23 +291,41 @@ public class UploadService {
         });
     }
 
-    private void handleProductImageInsert(UploadSession session, String fileUrl, StorageRecord record) {
-        long count = uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
-                EntityType.PRODUCT, session.getEntityId(), UploadStatus.COMPLETED);
+    private void handleProductImageInsert(
+        UploadSession session,
+        String fileUrl,
+        StorageRecord record
+    ) {
+        long count =
+            uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
+                EntityType.PRODUCT,
+                session.getEntityId(),
+                UploadStatus.COMPLETED
+            );
         if (count >= maxImagesPerProduct) {
-            log.warn("Product image limit reached: entityId={}, count={}", session.getEntityId(), count);
+            log.warn(
+                "Product image limit reached: entityId={}, count={}",
+                session.getEntityId(),
+                count
+            );
             return;
         }
         insertNewImage(session, fileUrl, record);
     }
 
-    private void insertNewImage(UploadSession session, String fileUrl, StorageRecord record) {
+    private void insertNewImage(
+        UploadSession session,
+        String fileUrl,
+        StorageRecord record
+    ) {
         Image image = new Image();
         image.setFileUrl(fileUrl);
         image.setFileName(extractFileName(session.getStoragePath()));
-        image.setFileSize(record.metadata() != null && record.metadata().get("size") != null
+        image.setFileSize(
+            record.metadata() != null && record.metadata().get("size") != null
                 ? Long.valueOf(record.metadata().get("size").toString())
-                : session.getFileSize());
+                : session.getFileSize()
+        );
         image.setContentType(record.mimetype());
         image.setEntityType(session.getEntityType());
         image.setEntityId(session.getEntityId());
@@ -238,33 +338,61 @@ public class UploadService {
             return;
         }
         List<String> allowed = List.of(allowedContentTypes.split(","));
-        if (allowed.stream().noneMatch(t -> t.trim().equalsIgnoreCase(contentType))) {
-            throw new BusinessException("File type not allowed: " + contentType);
+        if (
+            allowed
+                .stream()
+                .noneMatch(t -> t.trim().equalsIgnoreCase(contentType))
+        ) {
+            throw new BusinessException(
+                "File type not allowed: " + contentType
+            );
         }
     }
 
     private void validateFileSize(Long fileSize) {
         if (fileSize != null && fileSize > maxFileSizeBytes) {
-            throw new BusinessException("File size exceeds maximum allowed: " + maxFileSizeBytes + " bytes");
+            throw new BusinessException(
+                "File size exceeds maximum allowed: " +
+                    maxFileSizeBytes +
+                    " bytes"
+            );
         }
     }
 
     private void checkUserQuota(UUID entityId) {
-        long count = imageRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc(EntityType.USER, entityId).size();
+        long count = imageRepository
+            .findByEntityTypeAndEntityIdOrderByCreatedAtAsc(
+                EntityType.USER,
+                entityId
+            )
+            .size();
         if (count >= 1) {
-            log.info("User already has an image, will upsert: entityId={}", entityId);
+            log.info(
+                "User already has an image, will upsert: entityId={}",
+                entityId
+            );
         }
     }
 
     private void checkProductQuota(UUID entityId) {
-        long count = uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
-                EntityType.PRODUCT, entityId, UploadStatus.COMPLETED);
+        long count =
+            uploadSessionRepository.countByEntityTypeAndEntityIdAndStatus(
+                EntityType.PRODUCT,
+                entityId,
+                UploadStatus.COMPLETED
+            );
         if (count >= maxImagesPerProduct) {
-            throw new BusinessException("Product image limit reached: " + maxImagesPerProduct);
+            throw new BusinessException(
+                "Product image limit reached: " + maxImagesPerProduct
+            );
         }
     }
 
-    private String buildStoragePath(EntityType entityType, UUID entityId, String fileName) {
+    private String buildStoragePath(
+        EntityType entityType,
+        UUID entityId,
+        String fileName
+    ) {
         String prefix = entityType == EntityType.USER ? "users" : "products";
         String safeFileName = fileName.replaceAll("[^a-zA-Z0-9._-]", "_");
         return prefix + "/" + entityId + "/" + safeFileName;
@@ -272,6 +400,8 @@ public class UploadService {
 
     private String extractFileName(String storagePath) {
         int lastSlash = storagePath.lastIndexOf('/');
-        return lastSlash >= 0 ? storagePath.substring(lastSlash + 1) : storagePath;
+        return lastSlash >= 0
+            ? storagePath.substring(lastSlash + 1)
+            : storagePath;
     }
 }

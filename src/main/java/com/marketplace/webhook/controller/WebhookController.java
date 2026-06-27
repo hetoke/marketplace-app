@@ -15,28 +15,42 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/webhooks")
 public class WebhookController {
 
-	private final WebhookService webhookService;
-	private final String expectedSecret;
+    private final WebhookService webhookService;
+    private final String expectedSecret;
 
-	public WebhookController(WebhookService webhookService,
-			@Value("${app.webhook.secret:changeme}") String expectedSecret) {
-		this.webhookService = webhookService;
-		this.expectedSecret = expectedSecret;
-	}
+    public WebhookController(
+        WebhookService webhookService,
+        @Value("${app.webhook.secret:changeme}") String expectedSecret
+    ) {
+        this.webhookService = webhookService;
+        this.expectedSecret = expectedSecret;
+    }
 
-	@PostMapping("/storage")
-	public ResponseEntity<ApiResponse<Void>> handleStorageWebhook(
-			@RequestBody StorageWebhookRequest request,
-			@RequestHeader(value = "X-Webhook-Secret", required = false) String secret) {
-		if (secret == null || !expectedSecret.equals(secret)) {
-			return ResponseEntity.status(403).body(ApiResponse.error("Invalid webhook secret"));
-		}
-
-		if (!"INSERT".equals(request.type())) {
-			return ResponseEntity.ok(ApiResponse.ok("Event type ignored", null));
-		}
-
-		webhookService.handleStorageInsert(request.record());
-		return ResponseEntity.ok(ApiResponse.ok("Webhook processed", null));
-	}
+    @PostMapping("/storage")
+    public ResponseEntity<ApiResponse<Void>> handleStorageWebhook(
+        @RequestBody StorageWebhookRequest request,
+        @RequestHeader(
+            value = "X-Webhook-Secret",
+            required = false
+        ) String secret
+    ) {
+        System.out.println(request);
+        System.out.println(secret);
+        if (secret == null || !expectedSecret.equals(secret)) {
+            return ResponseEntity.status(403).body(
+                ApiResponse.error("Invalid webhook secret")
+            );
+        }
+        System.out.println(request);
+        if (
+            !"INSERT".equals(request.type()) && !"UPDATE".equals(request.type())
+        ) {
+            return ResponseEntity.ok(
+                ApiResponse.ok("Event type ignored", null)
+            );
+        }
+        System.out.println(request);
+        webhookService.handleStorageInsert(request.record());
+        return ResponseEntity.ok(ApiResponse.ok("Webhook processed", null));
+    }
 }
