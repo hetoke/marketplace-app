@@ -14,6 +14,7 @@ import com.marketplace.shared.security.JwtTokenProvider;
 import com.marketplace.user.dto.AuthResponse;
 import com.marketplace.user.dto.LoginRequest;
 import com.marketplace.user.dto.RefreshTokenRequest;
+import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.RegisterRequest;
 import com.marketplace.user.dto.ResetPasswordRequest;
 import com.marketplace.user.dto.UserResponse;
@@ -300,7 +301,7 @@ class AuthServiceTest {
 		when(jwtTokenProvider.generateAccessToken(anyString(), anyString(), anyString())).thenReturn("new-access");
 		when(jwtTokenProvider.generateRefreshToken(anyString())).thenReturn("new-refresh");
 
-		AuthResponse response = authService.refreshToken(request);
+		TokenResponse response = authService.refreshToken(request);
 
 		assertThat(response.accessToken()).isEqualTo("new-access");
 		assertThat(response.refreshToken()).isEqualTo("new-refresh");

@@ -11,6 +11,7 @@ import com.marketplace.user.dto.LoginRequest;
 import com.marketplace.user.dto.RefreshTokenRequest;
 import com.marketplace.user.dto.RegisterRequest;
 import com.marketplace.user.dto.ResetPasswordRequest;
+import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.dto.VerifyEmailRequest;
 import com.marketplace.user.model.RefreshToken;
@@ -98,7 +99,7 @@ public class AuthService {
 	}
 
 	@Transactional
-	public AuthResponse refreshToken(RefreshTokenRequest request) {
+	public TokenResponse refreshToken(RefreshTokenRequest request) {
 		RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
 				.orElseThrow(() -> new BusinessException("Invalid refresh token"));
 
@@ -110,7 +111,15 @@ public class AuthService {
 		User user = refreshToken.getUser();
 		refreshTokenRepository.delete(refreshToken);
 
-		return generateTokenPair(user);
+		String accessToken = jwtTokenProvider.generateAccessToken(
+				user.getId().toString(), user.getEmail(), user.getRole().name());
+		String newRefreshToken = jwtTokenProvider.generateRefreshToken(user.getId().toString());
+
+		RefreshToken rotated = new RefreshToken(user, newRefreshToken,
+				Instant.now().plus(7, ChronoUnit.DAYS));
+		refreshTokenRepository.save(rotated);
+
+		return new TokenResponse(accessToken, newRefreshToken);
 	}
 
 	@Transactional

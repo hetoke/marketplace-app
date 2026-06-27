@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.GlobalExceptionHandler;
 import com.marketplace.user.dto.AuthResponse;
+import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.User;
 import com.marketplace.user.service.AuthService;
@@ -368,14 +369,15 @@ class AuthControllerTest {
 
 	@Test
 	void refreshToken_success() throws Exception {
-		AuthResponse authResponse = new AuthResponse("access-token", "refresh-token", createTestUserResponse());
-		when(authService.refreshToken(any())).thenReturn(authResponse);
+		TokenResponse tokenResponse = new TokenResponse("access-token", "refresh-token");
+		when(authService.refreshToken(any())).thenReturn(tokenResponse);
 
 		mockMvc.perform(post("/api/v1/auth/refresh")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"refreshToken\":\"valid-refresh-token\"}"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.data.accessToken").value("access-token"));
+				.andExpect(jsonPath("$.data.accessToken").value("access-token"))
+				.andExpect(jsonPath("$.data.user").doesNotExist());
 	}
 
 	@Test

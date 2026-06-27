@@ -7,6 +7,7 @@ import com.marketplace.user.dto.LoginRequest;
 import com.marketplace.user.dto.RefreshTokenRequest;
 import com.marketplace.user.dto.RegisterRequest;
 import com.marketplace.user.dto.ResetPasswordRequest;
+import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.dto.VerifyEmailRequest;
 import com.marketplace.user.service.AuthService;
@@ -42,8 +43,8 @@ public class AuthController {
 	}
 
 	@PostMapping("/refresh")
-	public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
-		AuthResponse auth = authService.refreshToken(request);
+	public ResponseEntity<ApiResponse<TokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+		TokenResponse auth = authService.refreshToken(request);
 		return ResponseEntity.ok(ApiResponse.ok("Token refreshed", auth));
 	}
 
