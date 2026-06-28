@@ -9,6 +9,7 @@ CREATE TABLE payments (
     card_brand VARCHAR(20),
     provider_ref VARCHAR(255),
     failure_reason TEXT,
+    version BIGINT NOT NULL DEFAULT 0,
     refunded_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()

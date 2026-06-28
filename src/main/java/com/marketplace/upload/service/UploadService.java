@@ -6,6 +6,8 @@ import com.marketplace.image.repository.ImageRepository;
 import com.marketplace.image.storage.SupabaseStorageClient;
 import com.marketplace.image.storage.SupabaseStorageProperties;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductImage;
+import com.marketplace.product.repository.ProductImageRepository;
 import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
@@ -37,6 +39,7 @@ public class UploadService {
     private final UploadSessionRepository uploadSessionRepository;
     private final ImageRepository imageRepository;
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final UserRepository userRepository;
     private final SupabaseStorageClient storageClient;
     private final SupabaseStorageProperties storageProperties;
@@ -59,6 +62,7 @@ public class UploadService {
         UploadSessionRepository uploadSessionRepository,
         ImageRepository imageRepository,
         ProductRepository productRepository,
+        ProductImageRepository productImageRepository,
         UserRepository userRepository,
         SupabaseStorageClient storageClient,
         SupabaseStorageProperties storageProperties
@@ -66,6 +70,7 @@ public class UploadService {
         this.uploadSessionRepository = uploadSessionRepository;
         this.imageRepository = imageRepository;
         this.productRepository = productRepository;
+        this.productImageRepository = productImageRepository;
         this.userRepository = userRepository;
         this.storageClient = storageClient;
         this.storageProperties = storageProperties;
@@ -311,6 +316,17 @@ public class UploadService {
             return;
         }
         insertNewImage(session, fileUrl, record);
+
+        Product product = productRepository.findById(session.getEntityId()).orElse(null);
+        if (product != null) {
+            long imageCount = productImageRepository.findByProductIdOrderBySortOrderAsc(product.getId()).size();
+            ProductImage productImage = new ProductImage();
+            productImage.setProduct(product);
+            productImage.setUrl(fileUrl);
+            productImage.setSortOrder((int) imageCount);
+            productImage.setPrimary(imageCount == 0);
+            productImageRepository.save(productImage);
+        }
     }
 
     private void insertNewImage(

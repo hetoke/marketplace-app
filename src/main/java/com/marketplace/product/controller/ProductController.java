@@ -32,39 +32,62 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
-            @Valid @RequestBody ProductRequest request) {
-        String sellerId = SecurityContextHolder.getContext().getAuthentication().getName();
-        ProductResponse product = productService.createProduct(sellerId, request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.ok("Product created", product));
+        @Valid @RequestBody ProductRequest request
+    ) {
+        String sellerId = SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getName();
+        System.out.println(request);
+        ProductResponse product = productService.createProduct(
+            sellerId,
+            request
+        );
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+            ApiResponse.ok("Product created", product)
+        );
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> searchProducts(
-            ProductSearchRequest request) {
-        PageResponse<ProductResponse> products = productService.searchProducts(request);
+    public ResponseEntity<
+        ApiResponse<PageResponse<ProductResponse>>
+    > searchProducts(ProductSearchRequest request) {
+        PageResponse<ProductResponse> products = productService.searchProducts(
+            request
+        );
         return ResponseEntity.ok(ApiResponse.ok(products));
     }
 
     @GetMapping("/{productId}")
     public ResponseEntity<ApiResponse<ProductResponse>> getProductById(
-            @PathVariable UUID productId) {
+        @PathVariable UUID productId
+    ) {
         ProductResponse product = productService.getProductById(productId);
         return ResponseEntity.ok(ApiResponse.ok(product));
     }
 
     @PutMapping("/{productId}")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
-            @PathVariable UUID productId,
-            @Valid @RequestBody ProductRequest request) {
-        String sellerId = SecurityContextHolder.getContext().getAuthentication().getName();
-        ProductResponse product = productService.updateProduct(sellerId, productId, request);
+        @PathVariable UUID productId,
+        @Valid @RequestBody ProductRequest request
+    ) {
+        String sellerId = SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getName();
+        ProductResponse product = productService.updateProduct(
+            sellerId,
+            productId,
+            request
+        );
         return ResponseEntity.ok(ApiResponse.ok("Product updated", product));
     }
 
     @DeleteMapping("/{productId}")
-    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable UUID productId) {
-        String sellerId = SecurityContextHolder.getContext().getAuthentication().getName();
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(
+        @PathVariable UUID productId
+    ) {
+        String sellerId = SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getName();
         productService.deleteProduct(sellerId, productId);
         return ResponseEntity.ok(ApiResponse.ok("Product deleted", null));
     }

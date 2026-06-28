@@ -85,6 +85,7 @@ public class ProductService {
 		if (!product.getSellerId().toString().equals(sellerId)) {
 			throw new AccessDeniedException("You can only delete your own products");
 		}
+        productImageRepository.deleteByProductId(productId);
         imageService.deleteImagesByEntity(EntityType.PRODUCT, productId);
         productRepository.delete(product);
     }

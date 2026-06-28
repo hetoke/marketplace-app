@@ -13,6 +13,7 @@ CREATE TABLE orders (
     return_requested BOOLEAN DEFAULT FALSE,
     return_reason TEXT,
     return_requested_at TIMESTAMP,
+    version BIGINT NOT NULL DEFAULT 0,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -32,5 +33,3 @@ CREATE TABLE order_items (
 CREATE INDEX idx_orders_buyer ON orders(buyer_id);
 CREATE INDEX idx_orders_status ON orders(status);
 CREATE INDEX idx_order_items_order ON order_items(order_id);
-
-ALTER TABLE products ADD COLUMN version INTEGER NOT NULL DEFAULT 0;

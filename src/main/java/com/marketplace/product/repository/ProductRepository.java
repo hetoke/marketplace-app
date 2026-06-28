@@ -16,10 +16,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     Page<Product> findByCategoryIdAndActiveTrue(UUID categoryId, Pageable pageable);
 
     @Query("SELECT p FROM Product p WHERE " +
-           "(:query IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-           "(:categoryId IS NULL OR p.category.id = :categoryId) AND " +
-           "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
-           "(:maxPrice IS NULL OR p.price <= :maxPrice) AND " +
+           "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR :query IS NULL) AND " +
+           "(p.category.id = :categoryId OR :categoryId IS NULL) AND " +
+           "(p.price >= :minPrice OR :minPrice IS NULL) AND " +
+           "(p.price <= :maxPrice OR :maxPrice IS NULL) AND " +
            "p.active = true")
     Page<Product> search(
             @Param("query") String query,

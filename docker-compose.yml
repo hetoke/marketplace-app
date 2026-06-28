@@ -16,6 +16,8 @@ services:
       SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-}
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       SUPABASE_BUCKET_NAME: ${SUPABASE_BUCKET_NAME:-marketplace-images}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@marketplace.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
     depends_on:
       db:
         condition: service_healthy
