@@ -34,6 +34,7 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(BusinessException.class)
 	public ResponseEntity<ErrorResponse> handleBusiness(BusinessException ex, HttpServletRequest request) {
+		log.warn("Business exception at {}: {}", request.getRequestURI(), ex.getMessage());
 		ErrorResponse body = ErrorResponse.builder()
 				.status(HttpStatus.BAD_REQUEST.value())
 				.error(HttpStatus.BAD_REQUEST.getReasonPhrase())

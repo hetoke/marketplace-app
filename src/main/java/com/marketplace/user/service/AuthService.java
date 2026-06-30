@@ -100,10 +100,19 @@ public class AuthService {
 
 	@Transactional
 	public TokenResponse refreshToken(RefreshTokenRequest request) {
+		String tokenPrefix = request.refreshToken().length() > 8
+				? request.refreshToken().substring(0, 8) + "..."
+				: request.refreshToken();
+		log.info("Refresh attempt for token prefix: {}", tokenPrefix);
+
 		RefreshToken refreshToken = refreshTokenRepository.findByToken(request.refreshToken())
-				.orElseThrow(() -> new BusinessException("Invalid refresh token"));
+				.orElseThrow(() -> {
+					log.warn("Refresh token not found in DB (prefix: {})", tokenPrefix);
+					return new BusinessException("Invalid refresh token");
+				});
 
 		if (refreshToken.isExpired()) {
+			log.warn("Refresh token expired (prefix: {}, expiresAt: {})", tokenPrefix, refreshToken.getExpiresAt());
 			refreshTokenRepository.delete(refreshToken);
 			throw new BusinessException("Refresh token expired");
 		}
@@ -119,6 +128,7 @@ public class AuthService {
 				Instant.now().plus(7, ChronoUnit.DAYS));
 		refreshTokenRepository.save(rotated);
 
+		log.info("Refresh successful for user {} (prefix: {})", user.getId(), tokenPrefix);
 		return new TokenResponse(accessToken, newRefreshToken);
 	}
 
