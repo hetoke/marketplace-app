@@ -13,16 +13,13 @@ public record PlaceOrderRequest(
             @NotBlank(message = "Street is required")
             String street,
 
-            @NotBlank(message = "Ward/Commune is required")
+            @NotBlank(message = "Ward is required")
             String ward,
 
             @NotBlank(message = "District is required")
             String district,
 
             @NotBlank(message = "Province is required")
-            String province,
-
-            @NotBlank(message = "Country is required")
-            String country
+            String province
     ) {}
 }

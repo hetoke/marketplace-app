@@ -10,16 +10,18 @@ public record CartItemResponse(
         String productName,
         Integer quantity,
         BigDecimal unitPrice,
-        BigDecimal totalPrice
+        BigDecimal totalPrice,
+        Integer stock
 ) {
-    public static CartItemResponse from(CartItem item, String productName) {
+    public static CartItemResponse from(CartItem item, String productName, int stock) {
         return new CartItemResponse(
                 item.getId().toString(),
                 item.getProductId().toString(),
                 productName,
                 item.getQuantity(),
                 item.getUnitPrice(),
-                item.getTotalPrice()
+                item.getTotalPrice(),
+                stock
         );
     }
 }

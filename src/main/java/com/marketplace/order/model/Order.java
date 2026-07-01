@@ -38,7 +38,7 @@ public class Order {
     private BigDecimal totalAmount;
 
     @Column(name = "currency", nullable = false, length = 3)
-    private String currency = "USD";
+    private String currency = "VND";
 
     @Column(name = "shipping_address", nullable = false)
     @JdbcTypeCode(SqlTypes.JSON)

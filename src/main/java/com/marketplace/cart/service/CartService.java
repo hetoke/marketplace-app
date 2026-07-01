@@ -164,10 +164,10 @@ public class CartService {
 
         List<CartItemResponse> itemResponses = items.stream()
                 .map(item -> {
-                    String productName = productRepository.findById(item.getProductId())
-                            .map(Product::getName)
-                            .orElse("Unknown Product");
-                    return CartItemResponse.from(item, productName);
+                    Product product = productRepository.findById(item.getProductId()).orElse(null);
+                    String productName = product != null ? product.getName() : "Unknown Product";
+                    int stock = product != null ? product.getStock() : 0;
+                    return CartItemResponse.from(item, productName, stock);
                 })
                 .toList();
 

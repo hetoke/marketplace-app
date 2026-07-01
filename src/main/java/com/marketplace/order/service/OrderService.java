@@ -72,7 +72,7 @@ public class OrderService {
             throw new BusinessException("Failed to process shipping address");
         }
 
-        Order order = new Order(buyerId, BigDecimal.ZERO, "USD", shippingAddressJson);
+        Order order = new Order(buyerId, BigDecimal.ZERO, "VND", shippingAddressJson);
         order = orderRepository.save(order);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
