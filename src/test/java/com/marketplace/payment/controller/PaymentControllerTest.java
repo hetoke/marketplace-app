@@ -2,7 +2,6 @@ package com.marketplace.payment.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -10,8 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.marketplace.payment.dto.IpnNotification;
 import com.marketplace.payment.dto.PaymentHistoryResponse;
 import com.marketplace.payment.dto.PaymentResponse;
+import com.marketplace.payment.dto.SePayCheckoutResponse;
 import com.marketplace.payment.service.PaymentService;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.GlobalExceptionHandler;
@@ -19,6 +20,7 @@ import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,49 +58,45 @@ class PaymentControllerTest {
                 new UsernamePasswordAuthenticationToken(userId, null, java.util.List.of()));
     }
 
-    // ==================== PROCESS PAYMENT ====================
+    // ==================== INITIATE PAYMENT ====================
 
     @Test
-    void processPayment_success() throws Exception {
-        PaymentResponse response = new PaymentResponse(
-                UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-                new BigDecimal("99.99"), "USD", "CREDIT_CARD", "COMPLETED",
-                "4242", "VISA", "MOCK-ABC12345", null, null, Instant.now());
+    void initiatePayment_success() throws Exception {
+        SePayCheckoutResponse response = new SePayCheckoutResponse(
+                "https://pay-sandbox.sepay.vn/v1/checkout/init",
+                Map.of("merchant", "test", "signature", "abc123"));
 
-        when(paymentService.processPayment(anyString(), any(UUID.class), any())).thenReturn(response);
+        when(paymentService.initiatePayment(anyString(), any(UUID.class), anyString())).thenReturn(response);
 
-        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/pay")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
-                                + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.message").value("Payment processed"))
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
-                .andExpect(jsonPath("$.data.cardBrand").value("VISA"));
+                        .content("{\"paymentMethod\":\"BANK_TRANSFER\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Payment session created"))
+                .andExpect(jsonPath("$.data.checkoutUrl").value("https://pay-sandbox.sepay.vn/v1/checkout/init"))
+                .andExpect(jsonPath("$.data.formFields.merchant").value("test"));
     }
 
     @Test
-    void processPayment_invalidCard_returns400() throws Exception {
-        when(paymentService.processPayment(anyString(), any(UUID.class), any()))
-                .thenThrow(new BusinessException("Invalid card number format"));
+    void initiatePayment_alreadyPaid_returns400() throws Exception {
+        when(paymentService.initiatePayment(anyString(), any(UUID.class), anyString()))
+                .thenThrow(new BusinessException("Order has already been paid"));
 
-        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/pay")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"cardNumber\":\"123\",\"cardHolder\":\"John Doe\","
-                                + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
+                        .content("{\"paymentMethod\":\"BANK_TRANSFER\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid card number format"));
+                .andExpect(jsonPath("$.message").value("Order has already been paid"));
     }
 
     @Test
-    void processPayment_orderNotFound_returns404() throws Exception {
-        when(paymentService.processPayment(anyString(), any(UUID.class), any()))
+    void initiatePayment_orderNotFound_returns404() throws Exception {
+        when(paymentService.initiatePayment(anyString(), any(UUID.class), anyString()))
                 .thenThrow(new ResourceNotFoundException("Order", "id", UUID.randomUUID()));
 
-        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/payments")
+        mockMvc.perform(post("/api/v1/orders/" + UUID.randomUUID() + "/pay")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"cardNumber\":\"4242424242424242\",\"cardHolder\":\"John Doe\","
-                                + "\"expiryMonth\":12,\"expiryYear\":2026,\"cvv\":\"123\"}"))
+                        .content("{\"paymentMethod\":\"BANK_TRANSFER\"}"))
                 .andExpect(status().isNotFound());
     }
 
@@ -108,14 +106,15 @@ class PaymentControllerTest {
     void getPayment_success() throws Exception {
         PaymentResponse response = new PaymentResponse(
                 UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-                new BigDecimal("99.99"), "USD", "CREDIT_CARD", "COMPLETED",
-                "4242", "VISA", "MOCK-ABC12345", null, null, Instant.now());
+                new BigDecimal("99.99"), "VND", "SEPAY", "COMPLETED",
+                null, null, null, "ORDTEST1234", null, null, Instant.now());
 
         when(paymentService.getPayment(anyString(), any(UUID.class))).thenReturn(response);
 
         mockMvc.perform(get("/api/v1/payments/" + UUID.randomUUID()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("COMPLETED"));
+                .andExpect(jsonPath("$.data.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.data.method").value("SEPAY"));
     }
 
     // ==================== REFUND ====================
@@ -124,8 +123,8 @@ class PaymentControllerTest {
     void requestRefund_success() throws Exception {
         PaymentResponse response = new PaymentResponse(
                 UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-                new BigDecimal("99.99"), "USD", "CREDIT_CARD", "REFUNDED",
-                "4242", "VISA", "MOCK-ABC12345", null, Instant.now(), Instant.now());
+                new BigDecimal("99.99"), "VND", "SEPAY", "REFUNDED",
+                null, null, null, "ORDTEST1234", null, Instant.now(), Instant.now());
 
         when(paymentService.requestRefund(anyString(), any(UUID.class), any())).thenReturn(response);
 
@@ -155,7 +154,7 @@ class PaymentControllerTest {
     void getPaymentHistory_success() throws Exception {
         PaymentHistoryResponse history = new PaymentHistoryResponse(
                 UUID.randomUUID().toString(), UUID.randomUUID().toString(),
-                new BigDecimal("99.99"), "USD", "CREDIT_CARD", "COMPLETED", Instant.now());
+                new BigDecimal("99.99"), "VND", "SEPAY", "COMPLETED", Instant.now());
 
         when(paymentService.getPaymentHistory(anyString())).thenReturn(List.of(history));
 

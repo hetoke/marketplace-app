@@ -3,10 +3,13 @@ package com.marketplace.payment.service;
 import com.marketplace.order.model.Order;
 import com.marketplace.order.model.OrderStatus;
 import com.marketplace.order.repository.OrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.marketplace.payment.dto.IpnNotification;
+import com.marketplace.payment.dto.PaymentCallbackRequest;
 import com.marketplace.payment.dto.PaymentHistoryResponse;
 import com.marketplace.payment.dto.PaymentResponse;
-import com.marketplace.payment.dto.ProcessPaymentRequest;
 import com.marketplace.payment.dto.RefundPaymentRequest;
+import com.marketplace.payment.dto.SePayCheckoutResponse;
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentMethod;
 import com.marketplace.payment.model.Payment.PaymentStatus;
@@ -14,8 +17,10 @@ import com.marketplace.payment.repository.PaymentRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -30,14 +35,19 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
+    private final SePayService sePayService;
+    private final ObjectMapper objectMapper;
 
-    public PaymentService(PaymentRepository paymentRepository, OrderRepository orderRepository) {
+    public PaymentService(PaymentRepository paymentRepository, OrderRepository orderRepository,
+                          SePayService sePayService, ObjectMapper objectMapper) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
+        this.sePayService = sePayService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
-    public PaymentResponse processPayment(String userId, UUID orderId, ProcessPaymentRequest request) {
+    public SePayCheckoutResponse initiatePayment(String userId, UUID orderId, String paymentMethod) {
         UUID buyerId = UUID.fromString(userId);
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
@@ -62,49 +72,104 @@ public class PaymentService {
             throw new BusinessException("Order has a pending refund");
         }
 
-        Optional<Payment> existingPayment = paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.COMPLETED);
-        if (existingPayment.isPresent()) {
-            throw new BusinessException("Payment already exists for this order");
-        }
+        Optional<Payment> existingPending = paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING);
+        existingPending.ifPresent(paymentRepository::delete);
 
-        validateCard(request.cardNumber(), request.expiryMonth(), request.expiryYear(), request.cvv());
+        String invoiceNumber = "ORD" + orderId.toString().replace("-", "").substring(0, 8).toUpperCase();
 
-        String cardLastFour = request.cardNumber().replaceAll("\\s", "").substring(
-                request.cardNumber().replaceAll("\\s", "").length() - 4);
-        String cardBrand = detectCardBrand(request.cardNumber());
-        String providerRef = "MOCK-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-
-        Payment payment = new Payment(
-                order.getId(),
-                order.getTotalAmount(),
-                order.getCurrency(),
-                PaymentMethod.CREDIT_CARD,
-                cardLastFour,
-                cardBrand,
-                providerRef
-        );
-
-        boolean approved = mockAuthorize(request.cardNumber(), order.getTotalAmount());
-
-        if (approved) {
-            payment.setStatus(PaymentStatus.COMPLETED);
-            order.setPaymentStatus(Order.PaymentStatus.PAID);
-        } else {
-            payment.setStatus(PaymentStatus.FAILED);
-            payment.setFailureReason("Insufficient funds");
-            log.warn("Payment declined: orderId={}, card={}", order.getId(), cardLastFour);
-        }
-
+        Payment payment = new Payment(order.getId(), order.getTotalAmount(), order.getCurrency(), PaymentMethod.SEPAY);
+        payment.setInvoiceNumber(invoiceNumber);
         payment = paymentRepository.save(payment);
+
+        order.setPaymentStatus(Order.PaymentStatus.PENDING);
         order.setUpdatedAt(Instant.now());
         orderRepository.save(order);
 
-        if (approved) {
-            log.info("Payment completed: id={}, orderId={}, amount={} {}",
-                    payment.getId(), order.getId(), order.getTotalAmount(), order.getCurrency());
+        String successUrl = sePayService.buildSuccessUrl(orderId.toString());
+        String errorUrl = sePayService.buildErrorUrl(orderId.toString());
+        String cancelUrl = sePayService.buildCancelUrl(orderId.toString());
+
+        SePayCheckoutResponse response = sePayService.createCheckoutFields(
+                invoiceNumber,
+                order.getTotalAmount(),
+                order.getCurrency(),
+                "Thanh toan don hang " + invoiceNumber,
+                successUrl,
+                errorUrl,
+                cancelUrl
+        );
+
+        log.info("SEPay payment initiated: invoice={}, orderId={}, amount={} {}",
+                invoiceNumber, orderId, order.getTotalAmount(), order.getCurrency());
+
+        return response;
+    }
+
+    @Transactional
+    public void handleIpnNotification(String rawBody, String secretKey) {
+        if (!sePayService.verifyIpnSecretKey(secretKey)) {
+            log.warn("IPN secret key verification failed");
+            throw new BusinessException("Invalid IPN secret key");
         }
 
-        return PaymentResponse.from(payment);
+        IpnNotification notification;
+        try {
+            notification = objectMapper.readValue(rawBody, IpnNotification.class);
+        } catch (Exception e) {
+            log.error("Failed to deserialize IPN payload: {}", e.getMessage());
+            throw new BusinessException("Invalid IPN payload");
+        }
+
+        log.info("SEPay IPN received: notificationType={}, orderId={}, invoice={}, status={}",
+                notification.notificationType(),
+                notification.order() != null ? notification.order().orderId() : null,
+                notification.order() != null ? notification.order().orderInvoiceNumber() : null,
+                notification.transaction() != null ? notification.transaction().transactionStatus() : null);
+
+        if (!"ORDER_PAID".equals(notification.notificationType())) {
+            log.info("IPN ignored: notificationType={}, not ORDER_PAID", notification.notificationType());
+            return;
+        }
+
+        if (notification.order() == null || notification.order().orderInvoiceNumber() == null
+                || notification.order().orderInvoiceNumber().isBlank()) {
+            log.warn("IPN ignored: no order invoice number");
+            return;
+        }
+
+        String invoiceNumber = notification.order().orderInvoiceNumber();
+
+        Payment payment = paymentRepository.findByInvoiceNumber(invoiceNumber)
+                .orElse(null);
+
+        if (payment == null) {
+            log.warn("IPN: no payment found for invoice={}", invoiceNumber);
+            return;
+        }
+
+        if (payment.getStatus() == PaymentStatus.COMPLETED) {
+            log.info("Payment already completed, skipping IPN: invoice={}", invoiceNumber);
+            return;
+        }
+
+        payment.setStatus(PaymentStatus.COMPLETED);
+        payment.setProviderRef(notification.order().id());
+        payment.setUpdatedAt(Instant.now());
+        paymentRepository.save(payment);
+
+        Order order = orderRepository.findById(payment.getOrderId())
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", payment.getOrderId()));
+        order.setPaymentStatus(Order.PaymentStatus.PAID);
+        order.setUpdatedAt(Instant.now());
+        orderRepository.save(order);
+
+        log.info("Payment completed via IPN: paymentId={}, orderId={}, invoice={}",
+                payment.getId(), order.getId(), invoiceNumber);
+    }
+
+    public void logPaymentCallback(PaymentCallbackRequest request) {
+        UUID orderId = UUID.fromString(request.orderId());
+        log.warn("SEPay callback: orderId={}, status={}, params={}", orderId, request.paymentStatus(), request.params());
     }
 
     @Transactional(readOnly = true)
@@ -202,40 +267,5 @@ public class PaymentService {
         return paymentRepository.findCompletedBySellerId(sellerId).stream()
                 .map(PaymentHistoryResponse::from)
                 .toList();
-    }
-
-    private void validateCard(String cardNumber, Integer expiryMonth, Integer expiryYear, String cvv) {
-        String digits = cardNumber.replaceAll("\\s", "");
-        if (!digits.matches("\\d{13,19}")) {
-            throw new BusinessException("Invalid card number format");
-        }
-        if (expiryMonth < 1 || expiryMonth > 12) {
-            throw new BusinessException("Invalid expiry month");
-        }
-        if (expiryYear < 2024) {
-            throw new BusinessException("Card has expired");
-        }
-        if (expiryYear == 2024 && expiryMonth < Instant.now().atZone(java.time.ZoneId.systemDefault()).toLocalDate().getMonthValue()) {
-            throw new BusinessException("Card has expired");
-        }
-        if (cvv == null || !cvv.matches("\\d{3,4}")) {
-            throw new BusinessException("Invalid CVV");
-        }
-    }
-
-    private boolean mockAuthorize(String cardNumber, java.math.BigDecimal amount) {
-        String digits = cardNumber.replaceAll("\\s", "");
-        if ("4000000000000002".equals(digits)) {
-            return false;
-        }
-        return true;
-    }
-
-    private String detectCardBrand(String cardNumber) {
-        String digits = cardNumber.replaceAll("\\s", "");
-        if (digits.startsWith("4")) return "VISA";
-        if (digits.startsWith("5") || digits.startsWith("2")) return "MASTERCARD";
-        if (digits.startsWith("37")) return "AMEX";
-        return "UNKNOWN";
     }
 }
