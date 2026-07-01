@@ -12,6 +12,8 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "orders")
@@ -38,7 +40,8 @@ public class Order {
     @Column(name = "currency", nullable = false, length = 3)
     private String currency = "USD";
 
-    @Column(name = "shipping_address", nullable = false, columnDefinition = "jsonb")
+    @Column(name = "shipping_address", nullable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
     private String shippingAddress;
 
     @Column(name = "placed_at", nullable = false)

@@ -73,6 +73,7 @@ public class OrderService {
         }
 
         Order order = new Order(buyerId, BigDecimal.ZERO, "USD", shippingAddressJson);
+        order = orderRepository.save(order);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
         for (CartItem cartItem : cartItems) {
