@@ -248,8 +248,8 @@ Handle payment lifecycle.
 ### Features
 
 #### Payments
-- Mock Credit Card
-- VNPay Sandbox
+- SEPay Sandbox
+- VNPay Sandbox (optional)
 
 #### Refunds
 - Request refund

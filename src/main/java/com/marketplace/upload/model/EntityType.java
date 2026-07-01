@@ -1,4 +1,4 @@
-package com.marketplace.image.model;
+package com.marketplace.upload.model;
 
 public enum EntityType {
     USER,

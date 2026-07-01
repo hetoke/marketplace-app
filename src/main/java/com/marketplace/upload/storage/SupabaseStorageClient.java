@@ -1,4 +1,4 @@
-package com.marketplace.image.storage;
+package com.marketplace.upload.storage;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;

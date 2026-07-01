@@ -84,7 +84,7 @@ class OrderServiceTest {
     private PlaceOrderRequest createPlaceOrderRequest() {
         return new PlaceOrderRequest(
                 new PlaceOrderRequest.ShippingAddress(
-                        "123 Main St", "Springfield", "IL", "62701", "US"
+                        "123 Main St", "Phuong 1", "Quan 1", "TP HCM"
                 )
         );
     }

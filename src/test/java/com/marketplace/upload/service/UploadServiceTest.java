@@ -9,12 +9,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
-import com.marketplace.image.repository.ImageRepository;
-import com.marketplace.image.storage.SupabaseStorageClient;
-import com.marketplace.image.storage.SupabaseStorageClient.SignedUploadUrl;
-import com.marketplace.image.storage.SupabaseStorageProperties;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.storage.SupabaseStorageClient;
+import com.marketplace.upload.storage.SupabaseStorageClient.SignedUploadUrl;
+import com.marketplace.upload.storage.SupabaseStorageProperties;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.exception.AccessDeniedException;

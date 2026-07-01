@@ -14,6 +14,7 @@ public record PaymentResponse(
     String cardLastFour,
     String cardBrand,
     String providerRef,
+    String invoiceNumber,
     String failureReason,
     Instant refundedAt,
     Instant createdAt
@@ -29,6 +30,7 @@ public record PaymentResponse(
             payment.getCardLastFour(),
             payment.getCardBrand(),
             payment.getProviderRef(),
+            payment.getInvoiceNumber(),
             payment.getFailureReason(),
             payment.getRefundedAt(),
             payment.getCreatedAt()

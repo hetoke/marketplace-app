@@ -1,104 +1,98 @@
 sequenceDiagram
-    participant Client
-    participant PaymentController
-    participant PaymentService
-    participant OrderRepository
-    participant PaymentRepository
-    participant Database
+    participant Buyer
+    participant Frontend
+    participant Backend
+    participant OrderRepo
+    participant PaymentRepo
+    participant DB
+    participant SePay
 
-    Client->>PaymentController: POST /api/v1/orders/{orderId}/payments<br/>{cardNumber, cardHolder, expiryMonth, expiryYear, cvv}
-    PaymentController->>PaymentService: processPayment(userId, orderId, ProcessPaymentRequest)
+    Note over Buyer,SePay: Phase 1 — Place Order
 
-    PaymentService->>OrderRepository: findById(orderId)
-    OrderRepository->>Database: SELECT * FROM orders WHERE id = ?
-    Database-->>OrderRepository: Optional<Order>
-    OrderRepository-->>PaymentService: Order
+    Buyer->>Frontend: Click "Đặt hàng" on /checkout
+    Frontend->>Backend: POST /api/v1/orders<br/>{shipping_address: {street, ward, district, province}}
+    Backend->>OrderRepo: save(Order)
+    OrderRepo->>DB: INSERT INTO orders (status=PENDING, payment_status=PENDING)
+    DB-->>OrderRepo: Order
+    Backend->>OrderRepo: save(OrderItems) — stock already decremented by placeOrder()
+    Backend-->>Frontend: 201 Created {orderId}
+    Frontend->>Frontend: Redirect to /checkout/payment?orderId=xxx
 
-    alt Order not found
-        PaymentService-->>PaymentController: throw ResourceNotFoundException
-        PaymentController-->>Client: 404 Not Found
+    Note over Buyer,SePay: Phase 2 — Initiate SEPay Payment
+
+    Buyer->>Frontend: /checkout/payment page loads
+    Frontend->>Backend: POST /api/v1/orders/{orderId}/pay
+
+    Backend->>OrderRepo: findById(orderId)
+    OrderRepo->>DB: SELECT * FROM orders WHERE id = ?
+    DB-->>OrderRepo: Order
+    OrderRepo-->>Backend: Order
+
+    alt Order not found / wrong owner / cancelled / already paid
+        Backend-->>Frontend: 400/403/404 Error
+        Frontend-->>Buyer: Show error message
     end
 
-    alt Order does not belong to user
-        PaymentService-->>PaymentController: throw AccessDeniedException
-        PaymentController-->>Client: 403 Forbidden
+    Backend->>PaymentRepo: save(Payment{method=SEPAY, status=PENDING, invoiceNumber="ORD-XXXXXXXX"})
+    PaymentRepo->>DB: INSERT INTO payments (method='SEPAY', status='PENDING')
+    DB-->>PaymentRepo: Payment
+    PaymentRepo-->>Backend: Payment
+
+    Backend->>Backend: SePayService.createCheckoutFields()<br/>HMAC-SHA256 sign all fields with secret_key
+    Backend-->>Frontend: 200 OK {checkoutUrl, formFields}
+
+    Frontend->>Frontend: Render hidden <form> with auto-submit<br/>action=SEPay checkout URL, method=POST
+
+    Note over Buyer,SePay: Phase 3 — Pay on SEPay
+
+    Frontend->>SePay: Auto-submit form → POST /v1/checkout/init<br/>{merchant, order_invoice_number, order_amount,<br/>currency, payment_method, signature, ...}
+    SePay->>SePay: Validate signature, create payment session
+
+    alt Invalid signature
+        SePay-->>Frontend: Error page
+        Frontend-->>Buyer: Show error
     end
 
-    alt Order is CANCELLED or RETURNED
-        PaymentService-->>PaymentController: throw BusinessException("Cannot process payment for this order")
-        PaymentController-->>Client: 400 Bad Request
-    end
+    SePay-->>Buyer: Redirect to SEPay payment page
+    Buyer->>SePay: Select payment method (VietQR / Card)<br/>Complete payment
 
-    alt Order already paid
-        PaymentService-->>PaymentController: throw BusinessException("Order has already been paid")
-        PaymentController-->>Client: 400 Bad Request
-    end
+    Note over Buyer,SePay: Phase 4 — SEPay Confirms Payment
 
-    alt Order has been refunded
-        PaymentService-->>PaymentController: throw BusinessException("Order has been refunded")
-        PaymentController-->>Client: 400 Bad Request
-    end
+    alt Payment successful
+        SePay->>Backend: POST /api/v1/payments/ipn<br/>Headers: X-Secret-Key<br/>Body: {notification_type: "ORDER_PAID",<br/>order: {order_invoice_number: "ORD-XXXXXXXX"},<br/>transaction: {transaction_status: "APPROVED"}}
 
-    Note right of PaymentService: Idempotency check
+        Backend->>Backend: SePayService.verifyIpnSignature(X-Secret-Key)
+        alt Invalid IPN signature
+            Backend-->>SePay: 400 Invalid signature
+        end
 
-    PaymentService->>PaymentRepository: findByOrderIdAndStatus(orderId, COMPLETED)
-    PaymentRepository->>Database: SELECT * FROM payments WHERE order_id = ? AND status = 'COMPLETED'
-    Database-->>PaymentRepository: Optional<Payment>
-    PaymentRepository-->>PaymentService: existing payment
+        Backend->>PaymentRepo: findByInvoiceNumber("ORD-XXXXXXXX")
+        PaymentRepo->>DB: SELECT * FROM payments WHERE invoice_number = ?
+        DB-->>PaymentRepo: Payment
+        PaymentRepo-->>Backend: Payment (status=PENDING)
 
-    alt Payment already exists for this order
-        PaymentService-->>PaymentController: throw BusinessException("Payment already exists for this order")
-        PaymentController-->>Client: 400 Bad Request
-    end
+        alt Payment already completed (idempotent)
+            Backend-->>SePay: 200 OK (skip)
+        else New payment
+            Backend->>PaymentRepo: save(Payment{status=COMPLETED})
+            PaymentRepo->>DB: UPDATE payments SET status='COMPLETED' WHERE id = ?
+            Backend->>OrderRepo: save(Order{paymentStatus=PAID})
+            OrderRepo->>DB: UPDATE orders SET payment_status='PAID' WHERE id = ?
+            Backend-->>SePay: 200 OK {success: true}
+        end
 
-    Note right of PaymentService: Validate card details
+        SePay->>Frontend: Redirect to success_url → /orders/{id}?payment=success
+        Frontend-->>Buyer: Show success banner ✅
 
-    PaymentService->>PaymentService: validateCard(cardNumber, expiryMonth, expiryYear, cvv)
+    else Payment failed
+        SePay->>Backend: POST /api/v1/payments/ipn<br/>{notification_type: "ORDER_PAID",<br/>transaction: {transaction_status: "FAILED"}}
+        Backend->>PaymentRepo: save(Payment{status=FAILED, failureReason=...})
+        Backend-->>SePay: 200 OK
 
-    alt Invalid card format
-        PaymentService-->>PaymentController: throw BusinessException("Invalid card number format")
-        PaymentController-->>Client: 400 Bad Request
-    end
+        SePay->>Frontend: Redirect to error_url → /orders/{id}?payment=error
+        Frontend-->>Buyer: Show error banner ❌
 
-    alt Invalid expiry month
-        PaymentService-->>PaymentController: throw BusinessException("Invalid expiry month")
-        PaymentController-->>Client: 400 Bad Request
-    end
-
-    alt Card expired
-        PaymentService-->>PaymentController: throw BusinessException("Card has expired")
-        PaymentController-->>Client: 400 Bad Request
-    end
-
-    alt Invalid CVV
-        PaymentService-->>PaymentController: throw BusinessException("Invalid CVV")
-        PaymentController-->>Client: 400 Bad Request
-    end
-
-    Note right of PaymentService: Extract card last 4 digits<br/>Detect card brand<br/>Generate mock provider ref
-
-    PaymentService->>PaymentService: mockAuthorize(cardNumber, totalAmount)
-
-    alt Card ending 0002 (declined)
-        PaymentService->>PaymentRepository: save(new Payment(status=FAILED, failureReason="Insufficient funds"))
-        PaymentRepository->>Database: INSERT INTO payments (order_id, amount, currency, method, card_last_four, card_brand, provider_ref, status, failure_reason) VALUES (?, ?, ?, 'CREDIT_CARD', ?, ?, ?, 'FAILED', 'Insufficient funds')
-        Database-->>PaymentRepository: Payment
-        PaymentRepository-->>PaymentService: failed Payment
-
-        PaymentService-->>PaymentController: PaymentResponse
-        PaymentController-->>Client: 201 Created<br/>{message: "Payment processed", data: {status: FAILED}}
-    else Approved
-        PaymentService->>PaymentRepository: save(new Payment(status=COMPLETED))
-        PaymentRepository->>Database: INSERT INTO payments (...) VALUES (..., 'COMPLETED', NULL)
-        Database-->>PaymentRepository: Payment
-        PaymentRepository-->>PaymentService: completed Payment
-
-        Note right of PaymentService: Update order payment status
-
-        PaymentService->>OrderRepository: save(Order)
-        OrderRepository->>Database: UPDATE orders SET payment_status = 'PAID', updated_at = ? WHERE id = ?
-        Database-->>OrderRepository: OK
-
-        PaymentService-->>PaymentController: PaymentResponse
-        PaymentController-->>Client: 201 Created<br/>{message: "Payment processed", data: {status: COMPLETED}}
+    else Buyer cancelled
+        SePay->>Frontend: Redirect to cancel_url → /orders/{id}?payment=cancelled
+        Frontend-->>Buyer: Show cancelled banner ⚠️
     end

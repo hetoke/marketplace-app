@@ -1,12 +1,14 @@
 package com.marketplace.product.service;
 
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.service.ImageService;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.service.ImageService;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
 import com.marketplace.product.model.Category;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductImage;
 import com.marketplace.product.repository.CategoryRepository;
 import com.marketplace.product.repository.ProductImageRepository;
 import com.marketplace.product.repository.ProductRepository;
@@ -27,15 +29,18 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
+    private final ImageRepository imageRepository;
     private final ImageService imageService;
 
     public ProductService(ProductRepository productRepository,
                           CategoryRepository categoryRepository,
                           ProductImageRepository productImageRepository,
+                          ImageRepository imageRepository,
                           ImageService imageService) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productImageRepository = productImageRepository;
+        this.imageRepository = imageRepository;
         this.imageService = imageService;
     }
 
@@ -88,6 +93,23 @@ public class ProductService {
         productImageRepository.deleteByProductId(productId);
         imageService.deleteImagesByEntity(EntityType.PRODUCT, productId);
         productRepository.delete(product);
+    }
+
+    @Transactional
+    public void deleteProductImage(String sellerId, UUID productId, UUID imageId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+        if (!product.getSellerId().toString().equals(sellerId)) {
+            throw new AccessDeniedException("You can only delete images from your own products");
+        }
+        ProductImage productImage = productImageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Product image", "id", imageId));
+        if (!productImage.getProduct().getId().equals(productId)) {
+            throw new AccessDeniedException("Image does not belong to this product");
+        }
+        imageRepository.findByFileUrlContaining(productImage.getUrl())
+                .ifPresent(image -> imageService.deleteById(image.getId()));
+        productImageRepository.delete(productImage);
     }
 
     @Transactional(readOnly = true)

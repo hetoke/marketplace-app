@@ -1,7 +1,7 @@
-package com.marketplace.image.repository;
+package com.marketplace.upload.repository;
 
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;

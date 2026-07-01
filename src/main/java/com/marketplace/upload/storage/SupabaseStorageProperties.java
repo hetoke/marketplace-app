@@ -1,4 +1,4 @@
-package com.marketplace.image.storage;
+package com.marketplace.upload.storage;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

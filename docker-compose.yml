@@ -18,6 +18,13 @@ services:
       SUPABASE_BUCKET_NAME: ${SUPABASE_BUCKET_NAME:-marketplace-images}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@marketplace.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
+      SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:-}
+      SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:-}
+      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
+      SEPAY_ENVIRONMENT: ${SEPAY_ENVIRONMENT:-sandbox}
+      SEPAY_SUCCESS_URL: ${SEPAY_SUCCESS_URL:-http://localhost:3000/orders/{orderId}?payment=success}
+      SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-http://localhost:3000/orders/{orderId}?payment=error}
+      SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-http://localhost:3000/orders/{orderId}?payment=cancelled}
     depends_on:
       db:
         condition: service_healthy

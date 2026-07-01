@@ -1,8 +1,5 @@
 package com.marketplace.user.controller;
 
-import com.marketplace.image.dto.ImageResponse;
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.service.ImageService;
 import com.marketplace.shared.dto.ApiResponse;
 import com.marketplace.user.dto.ChangePasswordRequest;
 import com.marketplace.user.dto.UpdateProfileRequest;

@@ -1,10 +1,10 @@
 package com.marketplace.upload.service;
 
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
-import com.marketplace.image.repository.ImageRepository;
-import com.marketplace.image.storage.SupabaseStorageClient;
-import com.marketplace.image.storage.SupabaseStorageProperties;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.storage.SupabaseStorageClient;
+import com.marketplace.upload.storage.SupabaseStorageProperties;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.model.ProductImage;
 import com.marketplace.product.repository.ProductImageRepository;

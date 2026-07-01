@@ -1,4 +1,4 @@
-package com.marketplace.image.service;
+package com.marketplace.upload.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,11 +8,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.marketplace.image.dto.ImageResponse;
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
-import com.marketplace.image.repository.ImageRepository;
-import com.marketplace.image.storage.SupabaseStorageClient;
+import com.marketplace.upload.dto.ImageResponse;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.storage.SupabaseStorageClient;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.marketplace.image.model;
+package com.marketplace.upload.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

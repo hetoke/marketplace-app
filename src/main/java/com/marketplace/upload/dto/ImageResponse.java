@@ -1,7 +1,7 @@
-package com.marketplace.image.dto;
+package com.marketplace.upload.dto;
 
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
 import java.time.Instant;
 import java.util.UUID;
 

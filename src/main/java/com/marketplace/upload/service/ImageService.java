@@ -1,10 +1,10 @@
-package com.marketplace.image.service;
+package com.marketplace.upload.service;
 
-import com.marketplace.image.dto.ImageResponse;
-import com.marketplace.image.model.EntityType;
-import com.marketplace.image.model.Image;
-import com.marketplace.image.repository.ImageRepository;
-import com.marketplace.image.storage.SupabaseStorageClient;
+import com.marketplace.upload.dto.ImageResponse;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.model.Image;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.storage.SupabaseStorageClient;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.net.URI;
@@ -44,6 +44,14 @@ public class ImageService {
         if (!image.getUploadedBy().toString().equals(userId)) {
             throw new AccessDeniedException("You can only delete your own images");
         }
+        deleteFromStorage(image);
+        imageRepository.delete(image);
+    }
+
+    @Transactional
+    public void deleteById(UUID imageId) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new ResourceNotFoundException("Image", "id", imageId));
         deleteFromStorage(image);
         imageRepository.delete(image);
     }

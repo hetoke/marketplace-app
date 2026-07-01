@@ -72,18 +72,15 @@ public class PaymentService {
             throw new BusinessException("Order has a pending refund");
         }
 
-        Optional<Payment> existingPending = paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING);
-        existingPending.ifPresent(paymentRepository::delete);
+        paymentRepository.deleteByOrderIdAndStatus(orderId, PaymentStatus.PENDING);
 
         String invoiceNumber = "ORD" + orderId.toString().replace("-", "").substring(0, 8).toUpperCase();
 
         Payment payment = new Payment(order.getId(), order.getTotalAmount(), order.getCurrency(), PaymentMethod.SEPAY);
         payment.setInvoiceNumber(invoiceNumber);
-        payment = paymentRepository.save(payment);
+        paymentRepository.save(payment);
 
-        order.setPaymentStatus(Order.PaymentStatus.PENDING);
-        order.setUpdatedAt(Instant.now());
-        orderRepository.save(order);
+        orderRepository.updatePaymentStatus(orderId, Order.PaymentStatus.PENDING, Instant.now());
 
         String successUrl = sePayService.buildSuccessUrl(orderId.toString());
         String errorUrl = sePayService.buildErrorUrl(orderId.toString());
@@ -139,7 +136,7 @@ public class PaymentService {
 
         String invoiceNumber = notification.order().orderInvoiceNumber();
 
-        Payment payment = paymentRepository.findByInvoiceNumber(invoiceNumber)
+        Payment payment = paymentRepository.findFirstByInvoiceNumber(invoiceNumber)
                 .orElse(null);
 
         if (payment == null) {
@@ -157,14 +154,10 @@ public class PaymentService {
         payment.setUpdatedAt(Instant.now());
         paymentRepository.save(payment);
 
-        Order order = orderRepository.findById(payment.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", payment.getOrderId()));
-        order.setPaymentStatus(Order.PaymentStatus.PAID);
-        order.setUpdatedAt(Instant.now());
-        orderRepository.save(order);
+        orderRepository.confirmOnPayment(payment.getOrderId(), Order.PaymentStatus.PAID, OrderStatus.CONFIRMED, Instant.now());
 
         log.info("Payment completed via IPN: paymentId={}, orderId={}, invoice={}",
-                payment.getId(), order.getId(), invoiceNumber);
+                payment.getId(), payment.getOrderId(), invoiceNumber);
     }
 
     public void logPaymentCallback(PaymentCallbackRequest request) {

@@ -1,6 +1,6 @@
 package com.marketplace.upload.model;
 
-import com.marketplace.image.model.EntityType;
+import com.marketplace.upload.model.EntityType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -82,7 +82,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex,
 			HttpServletRequest request) {
-		log.debug("Malformed request body at {}", request.getRequestURI(), ex);
+		log.warn("Malformed request body at {}", request.getRequestURI(), ex);
 		ErrorResponse body = ErrorResponse.builder()
 				.status(HttpStatus.BAD_REQUEST.value())
 				.error(HttpStatus.BAD_REQUEST.getReasonPhrase())

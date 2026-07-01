@@ -47,6 +47,9 @@ public class Payment {
     @Column(name = "provider_ref")
     private String providerRef;
 
+    @Column(name = "invoice_number", length = 255)
+    private String invoiceNumber;
+
     @Column(name = "failure_reason")
     private String failureReason;
 
@@ -63,7 +66,7 @@ public class Payment {
     private Long version;
 
     public enum PaymentMethod {
-        CREDIT_CARD
+        CREDIT_CARD, SEPAY
     }
 
     public enum PaymentStatus {
@@ -71,6 +74,13 @@ public class Payment {
     }
 
     public Payment() {}
+
+    public Payment(UUID orderId, BigDecimal amount, String currency, PaymentMethod method) {
+        this.orderId = orderId;
+        this.amount = amount;
+        this.currency = currency;
+        this.method = method;
+    }
 
     public Payment(UUID orderId, BigDecimal amount, String currency, PaymentMethod method,
                    String cardLastFour, String cardBrand, String providerRef) {
@@ -101,6 +111,8 @@ public class Payment {
     public void setCardBrand(String cardBrand) { this.cardBrand = cardBrand; }
     public String getProviderRef() { return providerRef; }
     public void setProviderRef(String providerRef) { this.providerRef = providerRef; }
+    public String getInvoiceNumber() { return invoiceNumber; }
+    public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
     public String getFailureReason() { return failureReason; }
     public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
     public Instant getRefundedAt() { return refundedAt; }

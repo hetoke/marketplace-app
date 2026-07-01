@@ -49,6 +49,14 @@ app:
     public-url: ${SUPABASE_PUBLIC_URL:${SUPABASE_PROJECT_URL:https://placeholder.supabase.co}}
     service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:placeholder}
     bucket-name: ${SUPABASE_BUCKET_NAME:marketplace-images}
+  sepay:
+    merchant-id: ${SEPAY_MERCHANT_ID:}
+    secret-key: ${SEPAY_SECRET_KEY:}
+    webhook-secret: ${SEPAY_WEBHOOK_SECRET:}
+    environment: ${SEPAY_ENVIRONMENT:sandbox}
+    success-url: ${SEPAY_SUCCESS_URL:http://localhost:3000/orders/{orderId}?payment=success}
+    error-url: ${SEPAY_ERROR_URL:http://localhost:3000/orders/{orderId}?payment=error}
+    cancel-url: ${SEPAY_CANCEL_URL:http://localhost:3000/orders/{orderId}?payment=cancelled}
   webhook:
     secret: ${WEBHOOK_SECRET:changeme}
   upload:
@@ -64,7 +72,7 @@ spring:
       on-profile: test
 
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
     driver-class-name: org.h2.Driver
     username: sa
     password:

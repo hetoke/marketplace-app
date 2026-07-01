@@ -8,7 +8,9 @@ import com.marketplace.payment.dto.RefundPaymentRequest;
 import com.marketplace.payment.dto.SePayCheckoutResponse;
 import com.marketplace.payment.service.PaymentService;
 import com.marketplace.shared.dto.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,16 +44,24 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.ok("Payment session created", response));
     }
 
-    @PostMapping("/api/v1/payments/ipn")
+    @PostMapping(value = "/api/v1/payments/ipn", consumes = {"*/*"})
     public ResponseEntity<Map<String, Object>> handleIpn(
-            @RequestBody String rawBody,
+            HttpServletRequest request,
             @RequestHeader(value = "X-Secret-Key", required = false) String secretKey) {
-        log.info("IPN received: X-Secret-Key={}", secretKey != null ? secretKey.substring(0, Math.min(8, secretKey.length())) + "..." : "null");
+        String rawBody;
+        try {
+            rawBody = request.getReader().lines().reduce("", (acc, line) -> acc + line);
+        } catch (IOException e) {
+            log.error("Failed to read IPN request body", e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "error", "Cannot read request body"));
+        }
+
+        log.info("IPN received: bodyLength={}", rawBody.length());
         try {
             paymentService.handleIpnNotification(rawBody, secretKey);
             return ResponseEntity.ok(Map.of("success", true));
         } catch (Exception e) {
-            log.error("IPN processing failed: {}", e.getMessage());
+            log.error("IPN processing failed: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().body(Map.of("success", false, "error", e.getMessage()));
         }
     }

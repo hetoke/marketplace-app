@@ -9,6 +9,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,7 @@ public class JwtTokenProvider {
 
 		return Jwts.builder()
 				.subject(userId)
+				.id(UUID.randomUUID().toString())
 				.issuedAt(now)
 				.expiration(expiry)
 				.signWith(refreshKey)

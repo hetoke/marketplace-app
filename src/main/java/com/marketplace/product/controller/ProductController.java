@@ -91,4 +91,16 @@ public class ProductController {
         productService.deleteProduct(sellerId, productId);
         return ResponseEntity.ok(ApiResponse.ok("Product deleted", null));
     }
+
+    @DeleteMapping("/{productId}/images/{imageId}")
+    public ResponseEntity<ApiResponse<Void>> deleteProductImage(
+        @PathVariable UUID productId,
+        @PathVariable UUID imageId
+    ) {
+        String sellerId = SecurityContextHolder.getContext()
+            .getAuthentication()
+            .getName();
+        productService.deleteProductImage(sellerId, productId, imageId);
+        return ResponseEntity.ok(ApiResponse.ok("Product image deleted", null));
+    }
 }

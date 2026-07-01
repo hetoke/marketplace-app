@@ -1,6 +1,6 @@
 package com.marketplace.upload.repository;
 
-import com.marketplace.image.model.EntityType;
+import com.marketplace.upload.model.EntityType;
 import com.marketplace.upload.model.UploadSession;
 import com.marketplace.upload.model.UploadStatus;
 import java.util.Optional;

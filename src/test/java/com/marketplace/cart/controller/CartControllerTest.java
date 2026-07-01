@@ -64,7 +64,8 @@ class CartControllerTest {
                 "Test Product",
                 2,
                 new BigDecimal("29.99"),
-                new BigDecimal("59.98")
+                new BigDecimal("59.98"),
+                10
         );
         return new CartResponse(
                 UUID.randomUUID().toString(),

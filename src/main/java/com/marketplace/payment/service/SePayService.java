@@ -90,9 +90,13 @@ public class SePayService {
             log.warn("X-Secret-Key header is missing — rejecting IPN");
             return false;
         }
-        boolean valid = expected.equals(receivedSecretKey);
+        String cleaned = receivedSecretKey.trim();
+        if (cleaned.toLowerCase().startsWith("secretkey=")) {
+            cleaned = cleaned.substring("secretkey=".length());
+        }
+        boolean valid = expected.trim().equals(cleaned);
         if (!valid) {
-            log.warn("IPN X-Secret-Key mismatch");
+            log.warn("IPN X-Secret-Key mismatch: expected=[{}], received=[{}]", expected.trim(), cleaned);
         }
         return valid;
     }

@@ -85,8 +85,9 @@ class PaymentServiceTest {
 
         assertThat(response.checkoutUrl()).isEqualTo("https://pay-sandbox.sepay.vn/v1/checkout/init");
         assertThat(response.formFields()).containsKey("signature");
+        verify(paymentRepository).deleteByOrderIdAndStatus(ORDER_ID, PaymentStatus.PENDING);
         verify(paymentRepository).save(any(Payment.class));
-        verify(orderRepository).save(any(Order.class));
+        verify(orderRepository).updatePaymentStatus(eq(ORDER_ID), eq(Order.PaymentStatus.PENDING), any(java.time.Instant.class));
     }
 
     @Test
@@ -167,19 +168,17 @@ class PaymentServiceTest {
                 "\"customer\":null,\"agreement\":null}";
 
         when(sePayService.verifyIpnSecretKey("test-secret")).thenReturn(true);
-        when(paymentRepository.findByInvoiceNumber(invoiceNumber)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findFirstByInvoiceNumber(invoiceNumber)).thenReturn(Optional.of(payment));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(orderRepository.confirmOnPayment(eq(ORDER_ID), eq(Order.PaymentStatus.PAID), eq(com.marketplace.order.model.OrderStatus.CONFIRMED), any(java.time.Instant.class))).thenReturn(1);
 
         ArgumentCaptor<Payment> paymentCaptor = ArgumentCaptor.forClass(Payment.class);
-        ArgumentCaptor<Order> orderCaptor = ArgumentCaptor.forClass(Order.class);
 
         paymentService.handleIpnNotification(rawBody, "test-secret");
 
         verify(paymentRepository).save(paymentCaptor.capture());
-        verify(orderRepository).save(orderCaptor.capture());
+        verify(orderRepository).confirmOnPayment(eq(ORDER_ID), eq(Order.PaymentStatus.PAID), eq(com.marketplace.order.model.OrderStatus.CONFIRMED), any(java.time.Instant.class));
         assertThat(paymentCaptor.getValue().getStatus()).isEqualTo(PaymentStatus.COMPLETED);
-        assertThat(orderCaptor.getValue().getPaymentStatus()).isEqualTo(Order.PaymentStatus.PAID);
     }
 
     @Test
@@ -214,7 +213,7 @@ class PaymentServiceTest {
                 "\"customer\":null,\"agreement\":null}";
 
         when(sePayService.verifyIpnSecretKey("test-secret")).thenReturn(true);
-        when(paymentRepository.findByInvoiceNumber("ORDTEST1234")).thenReturn(Optional.of(payment));
+        when(paymentRepository.findFirstByInvoiceNumber("ORDTEST1234")).thenReturn(Optional.of(payment));
 
         paymentService.handleIpnNotification(rawBody, "test-secret");
 

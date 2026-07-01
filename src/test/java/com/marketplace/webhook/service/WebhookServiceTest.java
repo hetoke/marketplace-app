@@ -7,7 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.marketplace.image.storage.SupabaseStorageProperties;
+import com.marketplace.upload.storage.SupabaseStorageProperties;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.upload.service.UploadService;
 import com.marketplace.webhook.dto.StorageWebhookRequest.StorageRecord;

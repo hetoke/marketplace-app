@@ -1,6 +1,6 @@
 package com.marketplace.webhook.service;
 
-import com.marketplace.image.storage.SupabaseStorageProperties;
+import com.marketplace.upload.storage.SupabaseStorageProperties;
 import com.marketplace.upload.service.UploadService;
 import com.marketplace.webhook.dto.StorageWebhookRequest.StorageRecord;
 import org.slf4j.Logger;

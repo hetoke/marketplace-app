@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,7 +14,14 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
     Optional<Payment> findByOrderIdAndStatus(UUID orderId, PaymentStatus status);
 
+    @Query(value = "SELECT * FROM payments WHERE invoice_number = :invoiceNumber ORDER BY created_at DESC LIMIT 1", nativeQuery = true)
+    Optional<Payment> findFirstByInvoiceNumber(@Param("invoiceNumber") String invoiceNumber);
+
     List<Payment> findByOrderId(UUID orderId);
+
+    @Modifying
+    @Query("DELETE FROM Payment p WHERE p.orderId = :orderId AND p.status = :status")
+    int deleteByOrderIdAndStatus(@Param("orderId") UUID orderId, @Param("status") PaymentStatus status);
 
     @Query("SELECT p FROM Payment p WHERE p.orderId IN " +
            "(SELECT o.id FROM Order o WHERE o.buyerId = :buyerId) ORDER BY p.createdAt DESC")
