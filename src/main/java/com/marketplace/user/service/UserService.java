@@ -3,6 +3,7 @@ package com.marketplace.user.service;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.user.dto.ChangePasswordRequest;
+import com.marketplace.user.dto.SellerResponse;
 import com.marketplace.user.dto.UpdateProfileRequest;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.User;
@@ -28,6 +29,12 @@ public class UserService {
 		User user = userRepository.findById(UUID.fromString(userId))
 				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		return UserResponse.from(user);
+	}
+
+	public SellerResponse getSellerProfile(String sellerId) {
+		User user = userRepository.findById(UUID.fromString(sellerId))
+				.orElseThrow(() -> new ResourceNotFoundException("Seller", "id", sellerId));
+		return SellerResponse.from(user);
 	}
 
 	@Transactional

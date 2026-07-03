@@ -43,6 +43,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/v1/users/avatar/upload-url").authenticated()
 						.requestMatchers(HttpMethod.GET, "/api/v1/products/{productId}/images/upload-url").hasRole("SELLER")
 						.requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**").permitAll()
+						.requestMatchers(HttpMethod.GET, "/api/v1/sellers/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/products/**").hasRole("SELLER")
 						.requestMatchers(HttpMethod.PUT, "/api/v1/products/**").hasRole("SELLER")
 						.requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasRole("SELLER")
