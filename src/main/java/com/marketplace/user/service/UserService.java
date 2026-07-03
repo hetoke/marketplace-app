@@ -38,6 +38,18 @@ public class UserService {
 		if (request.displayName() != null) {
 			user.setDisplayName(request.displayName());
 		}
+		if (request.defaultStreet() != null) {
+			user.setDefaultStreet(request.defaultStreet());
+		}
+		if (request.defaultProvince() != null) {
+			user.setDefaultProvince(request.defaultProvince());
+		}
+		if (request.defaultDistrict() != null) {
+			user.setDefaultDistrict(request.defaultDistrict());
+		}
+		if (request.defaultWard() != null) {
+			user.setDefaultWard(request.defaultWard());
+		}
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
 

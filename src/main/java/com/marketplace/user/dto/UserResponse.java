@@ -8,10 +8,14 @@ public record UserResponse(
 		String id,
 		String email,
 		String displayName,
-		@JsonInclude(JsonInclude.Include.ALWAYS) String profilePictureUrl,
+		String profilePictureUrl,
 		User.Role role,
 		boolean isVerified,
-		Instant createdAt
+		Instant createdAt,
+		String defaultStreet,
+		String defaultProvince,
+		String defaultDistrict,
+		String defaultWard
 ) {
 	public static UserResponse from(User user) {
 		return new UserResponse(
@@ -21,7 +25,11 @@ public record UserResponse(
 				user.getProfilePictureUrl(),
 				user.getRole(),
 				user.isVerified(),
-				user.getCreatedAt()
+				user.getCreatedAt(),
+				user.getDefaultStreet(),
+				user.getDefaultProvince(),
+				user.getDefaultDistrict(),
+				user.getDefaultWard()
 		);
 	}
 }

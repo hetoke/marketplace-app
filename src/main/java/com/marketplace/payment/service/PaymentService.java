@@ -76,7 +76,8 @@ public class PaymentService {
 
         String invoiceNumber = "ORD" + orderId.toString().replace("-", "").substring(0, 8).toUpperCase();
 
-        Payment payment = new Payment(order.getId(), order.getTotalAmount(), order.getCurrency(), PaymentMethod.SEPAY);
+        PaymentMethod method = PaymentMethod.valueOf(paymentMethod);
+        Payment payment = new Payment(order.getId(), order.getTotalAmount(), order.getCurrency(), method);
         payment.setInvoiceNumber(invoiceNumber);
         paymentRepository.save(payment);
 

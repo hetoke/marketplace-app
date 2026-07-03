@@ -85,7 +85,7 @@ class UserServiceTest {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UpdateProfileRequest request = new UpdateProfileRequest("A");
+		UpdateProfileRequest request = new UpdateProfileRequest("A", null, null, null, null);
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
@@ -100,7 +100,7 @@ class UserServiceTest {
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
 		String name255 = "A".repeat(255);
-		UpdateProfileRequest request = new UpdateProfileRequest(name255);
+		UpdateProfileRequest request = new UpdateProfileRequest(name255, null, null, null, null);
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
@@ -116,7 +116,7 @@ class UserServiceTest {
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
-		UpdateProfileRequest request = new UpdateProfileRequest(null);
+		UpdateProfileRequest request = new UpdateProfileRequest(null, null, null, null, null);
 
 		UserResponse response = userService.updateProfile(user.getId().toString(), request);
 
@@ -129,7 +129,7 @@ class UserServiceTest {
 		UUID randomId = UUID.randomUUID();
 		when(userRepository.findById(randomId)).thenReturn(Optional.empty());
 
-		UpdateProfileRequest request = new UpdateProfileRequest("New Name");
+		UpdateProfileRequest request = new UpdateProfileRequest("New Name", null, null, null, null);
 
 		assertThatThrownBy(() -> userService.updateProfile(randomId.toString(), request))
 				.isInstanceOf(ResourceNotFoundException.class);

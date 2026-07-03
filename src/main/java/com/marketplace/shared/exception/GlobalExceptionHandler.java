@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -144,6 +145,20 @@ public class GlobalExceptionHandler {
 				.timestamp(Instant.now())
 				.build();
 		return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
+	}
+
+	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+	public ResponseEntity<ErrorResponse> handleOptimisticLock(
+			ObjectOptimisticLockingFailureException ex, HttpServletRequest request) {
+		log.warn("Optimistic lock failure at {}", request.getRequestURI());
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.CONFLICT.value())
+				.error(HttpStatus.CONFLICT.getReasonPhrase())
+				.message("Your cart is being updated. Please try again.")
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
 	}
 
 	@ExceptionHandler(Exception.class)

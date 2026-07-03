@@ -81,7 +81,7 @@ class PaymentServiceTest {
             return p;
         });
 
-        SePayCheckoutResponse response = paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "BANK_TRANSFER");
+        SePayCheckoutResponse response = paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "SEPAY");
 
         assertThat(response.checkoutUrl()).isEqualTo("https://pay-sandbox.sepay.vn/v1/checkout/init");
         assertThat(response.formFields()).containsKey("signature");
@@ -96,7 +96,7 @@ class PaymentServiceTest {
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "BANK_TRANSFER"))
+        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "SEPAY"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("already been paid");
     }
@@ -105,7 +105,7 @@ class PaymentServiceTest {
     void initiatePayment_orderNotFound_throwsResourceNotFound() {
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "BANK_TRANSFER"))
+        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "SEPAY"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("Order");
     }
@@ -116,7 +116,7 @@ class PaymentServiceTest {
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(UUID.randomUUID().toString(), ORDER_ID, "BANK_TRANSFER"))
+        assertThatThrownBy(() -> paymentService.initiatePayment(UUID.randomUUID().toString(), ORDER_ID, "SEPAY"))
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageContaining("does not belong");
     }
@@ -127,7 +127,7 @@ class PaymentServiceTest {
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "BANK_TRANSFER"))
+        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "SEPAY"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("Cannot process payment");
     }
@@ -138,7 +138,7 @@ class PaymentServiceTest {
 
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "BANK_TRANSFER"))
+        assertThatThrownBy(() -> paymentService.initiatePayment(USER_ID.toString(), ORDER_ID, "SEPAY"))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("pending refund");
     }

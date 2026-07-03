@@ -101,7 +101,6 @@ class OrderServiceTest {
                 .thenReturn(List.of(cartItem));
         when(productRepository.findById(product.getId()))
                 .thenReturn(Optional.of(product));
-        when(productRepository.save(any(Product.class))).thenReturn(product);
         when(orderItemRepository.save(any(OrderItem.class))).thenAnswer(inv -> inv.getArgument(0));
         when(orderRepository.save(any(Order.class))).thenReturn(savedOrder);
         when(orderItemRepository.findByOrderId(savedOrder.getId())).thenReturn(List.of());
@@ -110,8 +109,8 @@ class OrderServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(response.status()).isEqualTo("PENDING");
-        assertThat(product.getStock()).isEqualTo(8);
         verify(cartItemRepository).deleteByCartId(cart.getId());
+        verify(productRepository, never()).save(any(Product.class));
     }
 
     @Test
@@ -233,15 +232,14 @@ class OrderServiceTest {
                 .thenReturn(Optional.of(order));
         when(orderItemRepository.findByOrderId(order.getId()))
                 .thenReturn(List.of(item), List.of());
-        when(productRepository.findById(product.getId()))
-                .thenReturn(Optional.of(product));
+        when(productRepository.incrementStock(product.getId(), 2)).thenReturn(1);
         when(orderRepository.save(any(Order.class))).thenReturn(order);
 
         OrderResponse response = orderService.cancelOrder(USER_ID, order.getId(),
                 new CancelOrderRequest("Changed my mind"));
 
         assertThat(response.status()).isEqualTo("CANCELLED");
-        assertThat(product.getStock()).isEqualTo(12);
+        verify(productRepository).incrementStock(product.getId(), 2);
     }
 
     @Test

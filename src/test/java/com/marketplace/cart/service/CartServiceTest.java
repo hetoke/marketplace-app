@@ -3,6 +3,8 @@ package com.marketplace.cart.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +110,7 @@ class CartServiceTest {
                 .thenReturn(Optional.of(product));
         when(cartItemRepository.findByCartIdAndProductId(cart.getId(), product.getId()))
                 .thenReturn(Optional.empty());
+        when(productRepository.decrementStock(product.getId(), 2)).thenReturn(1);
         when(cartItemRepository.save(any(CartItem.class))).thenAnswer(inv -> inv.getArgument(0));
         when(cartRepository.save(any(Cart.class))).thenReturn(cart);
         when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of());
@@ -115,6 +118,7 @@ class CartServiceTest {
         CartResponse response = cartService.addItem(USER_ID, product.getId(), 2);
 
         assertThat(response).isNotNull();
+        verify(productRepository).decrementStock(product.getId(), 2);
         verify(cartItemRepository).save(any(CartItem.class));
     }
 
@@ -134,6 +138,7 @@ class CartServiceTest {
                 .thenReturn(Optional.of(product));
         when(cartItemRepository.findByCartIdAndProductId(cart.getId(), product.getId()))
                 .thenReturn(Optional.of(existingItem));
+        when(productRepository.decrementStock(product.getId(), 3)).thenReturn(1);
         when(cartItemRepository.save(any(CartItem.class))).thenAnswer(inv -> inv.getArgument(0));
         when(cartRepository.save(any(Cart.class))).thenReturn(cart);
         when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of());
@@ -142,6 +147,7 @@ class CartServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(existingItem.getQuantity()).isEqualTo(5);
+        verify(productRepository).decrementStock(product.getId(), 3);
     }
 
     @Test
@@ -210,6 +216,7 @@ class CartServiceTest {
                 .thenReturn(Optional.of(item));
         when(productRepository.findById(product.getId()))
                 .thenReturn(Optional.of(product));
+        when(productRepository.decrementStock(product.getId(), 3)).thenReturn(1);
         when(cartItemRepository.save(any(CartItem.class))).thenAnswer(inv -> inv.getArgument(0));
         when(cartRepository.save(any(Cart.class))).thenReturn(cart);
         when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of());
@@ -218,6 +225,34 @@ class CartServiceTest {
 
         assertThat(response).isNotNull();
         assertThat(item.getQuantity()).isEqualTo(5);
+        verify(productRepository).decrementStock(product.getId(), 3);
+    }
+
+    @Test
+    void updateQuantity_restoresStock_whenQuantityDecreased() {
+        UUID userUuid = UUID.fromString(USER_ID);
+        Cart cart = createTestCart(userUuid);
+        UUID sellerId = UUID.randomUUID();
+        Product product = createTestProduct(sellerId);
+        CartItem item = new CartItem(cart, product.getId(), 5, product.getPrice());
+        item.setId(UUID.randomUUID());
+
+        when(cartRepository.findByUserIdAndStatus(userUuid, Cart.Status.ACTIVE))
+                .thenReturn(Optional.of(cart));
+        when(cartItemRepository.findById(item.getId()))
+                .thenReturn(Optional.of(item));
+        when(productRepository.findById(product.getId()))
+                .thenReturn(Optional.of(product));
+        when(productRepository.incrementStock(product.getId(), 3)).thenReturn(1);
+        when(cartItemRepository.save(any(CartItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(cartRepository.save(any(Cart.class))).thenReturn(cart);
+        when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of());
+
+        CartResponse response = cartService.updateQuantity(USER_ID, item.getId(), 2);
+
+        assertThat(response).isNotNull();
+        assertThat(item.getQuantity()).isEqualTo(2);
+        verify(productRepository).incrementStock(product.getId(), 3);
     }
 
     @Test
@@ -268,11 +303,13 @@ class CartServiceTest {
                 .thenReturn(Optional.of(cart));
         when(cartItemRepository.findById(item.getId()))
                 .thenReturn(Optional.of(item));
+        when(productRepository.incrementStock(product.getId(), 2)).thenReturn(1);
         when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of());
 
         CartResponse response = cartService.removeItem(USER_ID, item.getId());
 
         assertThat(response).isNotNull();
+        verify(productRepository).incrementStock(product.getId(), 2);
         verify(cartItemRepository).delete(item);
     }
 
@@ -300,12 +337,18 @@ class CartServiceTest {
     void clearCart_removesAllItems() {
         UUID userUuid = UUID.fromString(USER_ID);
         Cart cart = createTestCart(userUuid);
+        UUID sellerId = UUID.randomUUID();
+        Product product = createTestProduct(sellerId);
+        CartItem item = new CartItem(cart, product.getId(), 2, product.getPrice());
+        item.setId(UUID.randomUUID());
 
         when(cartRepository.findByUserIdAndStatus(userUuid, Cart.Status.ACTIVE))
                 .thenReturn(Optional.of(cart));
+        when(cartItemRepository.findByCartId(cart.getId())).thenReturn(List.of(item));
 
         cartService.clearCart(USER_ID);
 
+        verify(productRepository).incrementStock(product.getId(), 2);
         verify(cartItemRepository).deleteByCartId(cart.getId());
     }
 }

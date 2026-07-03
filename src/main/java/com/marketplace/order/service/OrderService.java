@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -87,14 +86,6 @@ public class OrderService {
             if (product.getStock() < cartItem.getQuantity()) {
                 throw new BusinessException("Insufficient stock for '" + product.getName()
                         + "'. Available: " + product.getStock() + ", requested: " + cartItem.getQuantity());
-            }
-
-            product.setStock(product.getStock() - cartItem.getQuantity());
-            try {
-                productRepository.save(product);
-            } catch (ObjectOptimisticLockingFailureException e) {
-                throw new BusinessException("Product '" + product.getName()
-                        + "' is no longer available due to concurrent purchase. Please try again.");
             }
 
             OrderItem orderItem = new OrderItem(
@@ -215,11 +206,7 @@ public class OrderService {
 
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getId());
         for (OrderItem orderItem : orderItems) {
-            Product product = productRepository.findById(orderItem.getProductId()).orElse(null);
-            if (product != null) {
-                product.setStock(product.getStock() + orderItem.getQuantity());
-                productRepository.save(product);
-            }
+            productRepository.incrementStock(orderItem.getProductId(), orderItem.getQuantity());
         }
 
         order = orderRepository.save(order);

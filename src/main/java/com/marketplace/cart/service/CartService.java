@@ -15,15 +15,26 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class CartService {
 
+    private static final Logger log = LoggerFactory.getLogger(CartService.class);
+    private static final int MAX_RETRIES = 3;
+
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public CartService(CartRepository cartRepository,
                        CartItemRepository cartItemRepository,
@@ -43,6 +54,18 @@ public class CartService {
     @Transactional
     public CartResponse addItem(String userId, UUID productId, int quantity) {
         UUID userUuid = UUID.fromString(userId);
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                return doAddItem(userUuid, productId, quantity);
+            } catch (ObjectOptimisticLockingFailureException ex) {
+                log.warn("Optimistic lock on addItem (attempt {}/{}), retrying", attempt + 1, MAX_RETRIES);
+                entityManager.clear();
+            }
+        }
+        throw new BusinessException("Cart is being updated by another request. Please try again.");
+    }
+
+    private CartResponse doAddItem(UUID userUuid, UUID productId, int quantity) {
         Cart cart = getOrCreateActiveCart(userUuid);
 
         Product product = productRepository.findById(productId)
@@ -64,10 +87,19 @@ public class CartService {
             if (product.getStock() < newQuantity) {
                 throw new BusinessException("Insufficient stock. Available: " + product.getStock());
             }
+            int delta = newQuantity - existingItem.getQuantity();
+            int updated = productRepository.decrementStock(productId, delta);
+            if (updated == 0) {
+                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+            }
             existingItem.setQuantity(newQuantity);
             existingItem.setUnitPrice(product.getPrice());
             cartItemRepository.save(existingItem);
         } else {
+            int updated = productRepository.decrementStock(productId, quantity);
+            if (updated == 0) {
+                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+            }
             CartItem newItem = new CartItem(cart, productId, quantity, product.getPrice());
             cartItemRepository.save(newItem);
         }
@@ -81,6 +113,18 @@ public class CartService {
     @Transactional
     public CartResponse updateQuantity(String userId, UUID itemId, int quantity) {
         UUID userUuid = UUID.fromString(userId);
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                return doUpdateQuantity(userUuid, itemId, quantity);
+            } catch (ObjectOptimisticLockingFailureException ex) {
+                log.warn("Optimistic lock on updateQuantity (attempt {}/{}), retrying", attempt + 1, MAX_RETRIES);
+                entityManager.clear();
+            }
+        }
+        throw new BusinessException("Cart is being updated by another request. Please try again.");
+    }
+
+    private CartResponse doUpdateQuantity(UUID userUuid, UUID itemId, int quantity) {
         Cart cart = getOrCreateActiveCart(userUuid);
 
         CartItem item = cartItemRepository.findById(itemId)
@@ -93,8 +137,18 @@ public class CartService {
         Product product = productRepository.findById(item.getProductId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProductId()));
 
-        if (product.getStock() < quantity) {
+        int delta = quantity - item.getQuantity();
+        if (delta > 0 && product.getStock() < delta) {
             throw new BusinessException("Insufficient stock. Available: " + product.getStock());
+        }
+
+        if (delta > 0) {
+            int updated = productRepository.decrementStock(item.getProductId(), delta);
+            if (updated == 0) {
+                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(item.getProductId()).map(Product::getStock).orElse(0));
+            }
+        } else if (delta < 0) {
+            productRepository.incrementStock(item.getProductId(), -delta);
         }
 
         item.setQuantity(quantity);
@@ -110,6 +164,18 @@ public class CartService {
     @Transactional
     public CartResponse removeItem(String userId, UUID itemId) {
         UUID userUuid = UUID.fromString(userId);
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                return doRemoveItem(userUuid, itemId);
+            } catch (ObjectOptimisticLockingFailureException ex) {
+                log.warn("Optimistic lock on removeItem (attempt {}/{}), retrying", attempt + 1, MAX_RETRIES);
+                entityManager.clear();
+            }
+        }
+        throw new BusinessException("Cart is being updated by another request. Please try again.");
+    }
+
+    private CartResponse doRemoveItem(UUID userUuid, UUID itemId) {
         Cart cart = getOrCreateActiveCart(userUuid);
 
         CartItem item = cartItemRepository.findById(itemId)
@@ -119,6 +185,7 @@ public class CartService {
             throw new AccessDeniedException("Cart item does not belong to this cart");
         }
 
+        productRepository.incrementStock(item.getProductId(), item.getQuantity());
         cartItemRepository.delete(item);
 
         cart.setUpdatedAt(Instant.now());
@@ -134,6 +201,10 @@ public class CartService {
                 .orElse(null);
         if (cart == null) {
             return;
+        }
+        List<CartItem> items = cartItemRepository.findByCartId(cart.getId());
+        for (CartItem item : items) {
+            productRepository.incrementStock(item.getProductId(), item.getQuantity());
         }
         cartItemRepository.deleteByCartId(cart.getId());
         cart.setUpdatedAt(Instant.now());

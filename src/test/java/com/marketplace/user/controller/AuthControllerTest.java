@@ -47,7 +47,7 @@ class AuthControllerTest {
 
 	private UserResponse createTestUserResponse() {
 		return new UserResponse("uuid-123", "test@test.com", "Test User", null,
-				User.Role.BUYER, false, null);
+				User.Role.BUYER, false, null, null, null, null, null);
 	}
 
 	// ==================== REGISTER ====================
@@ -72,7 +72,7 @@ class AuthControllerTest {
 	@Test
 	void register_roleSeller_success() throws Exception {
 		UserResponse sellerResponse = new UserResponse("uuid-456", "seller@test.com", "Seller User", null,
-				User.Role.SELLER, false, null);
+				User.Role.SELLER, false, null, null, null, null, null);
 		when(authService.register(any())).thenReturn(sellerResponse);
 
 		mockMvc.perform(post("/api/v1/auth/register")
