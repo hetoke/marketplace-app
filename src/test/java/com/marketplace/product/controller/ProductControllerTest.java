@@ -69,6 +69,8 @@ class ProductControllerTest {
 				"A test product",
 				new BigDecimal("29.99"),
 				10,
+				0.0,
+				0,
 				true,
 				List.of(),
 				java.time.Instant.now());

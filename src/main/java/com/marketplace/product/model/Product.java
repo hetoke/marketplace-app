@@ -43,6 +43,12 @@ public class Product {
     @Column(nullable = false)
     private Integer stock = 0;
 
+    @Column(name = "average_rating")
+    private Double averageRating = 0.0;
+
+    @Column(name = "review_count", nullable = false)
+    private Integer reviewCount = 0;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -121,6 +127,12 @@ public class Product {
     public void setStock(Integer stock) {
         this.stock = stock;
     }
+
+    public Double getAverageRating() { return averageRating; }
+    public void setAverageRating(Double averageRating) { this.averageRating = averageRating; }
+
+    public Integer getReviewCount() { return reviewCount; }
+    public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 
     public boolean isActive() {
         return active;

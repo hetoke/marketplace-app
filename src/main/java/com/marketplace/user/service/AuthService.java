@@ -13,6 +13,7 @@ import com.marketplace.user.dto.RegisterRequest;
 import com.marketplace.user.dto.ResetPasswordRequest;
 import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
+import com.marketplace.user.dto.ResendVerificationTokenRequest;
 import com.marketplace.user.dto.VerifyEmailRequest;
 import com.marketplace.user.model.RefreshToken;
 import com.marketplace.user.model.User;
@@ -152,6 +153,19 @@ public class AuthService {
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
 		verificationTokenRepository.delete(token);
+	}
+
+	@Transactional
+	public void resendVerificationToken(ResendVerificationTokenRequest request) {
+		User user = userRepository.findByEmail(request.email()).orElse(null);
+		if (user == null || user.isVerified()) {
+			return;
+		}
+
+		verificationTokenRepository.deleteByUserId(user.getId());
+
+		String verificationToken = createVerificationToken(user);
+		log.info("Resent email verification token for {}: {}", user.getEmail(), verificationToken);
 	}
 
 	@Transactional

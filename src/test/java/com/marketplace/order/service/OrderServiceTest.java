@@ -11,6 +11,7 @@ import com.marketplace.cart.model.Cart;
 import com.marketplace.cart.model.CartItem;
 import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
+import com.marketplace.notification.service.NotificationService;
 import com.marketplace.order.dto.CancelOrderRequest;
 import com.marketplace.order.dto.OrderResponse;
 import com.marketplace.order.dto.PlaceOrderRequest;
@@ -22,6 +23,7 @@ import com.marketplace.order.repository.OrderItemRepository;
 import com.marketplace.order.repository.OrderRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.payment.repository.PaymentRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
@@ -53,6 +55,12 @@ class OrderServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
+    private PaymentRepository paymentRepository;
 
     @InjectMocks
     private OrderService orderService;

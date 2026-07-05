@@ -15,8 +15,12 @@ import com.marketplace.order.model.OrderItem;
 import com.marketplace.order.model.OrderStatus;
 import com.marketplace.order.repository.OrderItemRepository;
 import com.marketplace.order.repository.OrderRepository;
+import com.marketplace.payment.model.Payment;
+import com.marketplace.payment.repository.PaymentRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.notification.model.NotificationType;
+import com.marketplace.notification.service.NotificationService;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
@@ -39,17 +43,23 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final NotificationService notificationService;
+    private final PaymentRepository paymentRepository;
 
     public OrderService(OrderRepository orderRepository,
                         OrderItemRepository orderItemRepository,
                         CartRepository cartRepository,
                         CartItemRepository cartItemRepository,
-                        ProductRepository productRepository) {
+                        ProductRepository productRepository,
+                        NotificationService notificationService,
+                        PaymentRepository paymentRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.notificationService = notificationService;
+        this.paymentRepository = paymentRepository;
     }
 
     @Transactional
@@ -108,6 +118,29 @@ public class OrderService {
         cart.setUpdatedAt(Instant.now());
         cartRepository.save(cart);
 
+        notificationService.createNotification(
+                buyerId,
+                NotificationType.ORDER_UPDATE,
+                "Order Placed",
+                "Your order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been placed successfully.",
+                order.getId(),
+                "ORDER"
+        );
+
+        for (CartItem cartItem : cartItems) {
+            Product product = productRepository.findById(cartItem.getProductId()).orElse(null);
+            if (product != null && product.getStock() <= 5) {
+                notificationService.createNotification(
+                        product.getSellerId(),
+                        NotificationType.LOW_STOCK,
+                        "Low Stock Alert",
+                        "Product '" + product.getName() + "' has only " + product.getStock() + " items remaining.",
+                        product.getId(),
+                        "PRODUCT"
+                );
+            }
+        }
+
         List<OrderItemResponse> itemResponses = orderItemRepository.findByOrderId(order.getId()).stream()
                 .map(OrderItemResponse::from)
                 .toList();
@@ -124,7 +157,8 @@ public class OrderService {
                     List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
                             .map(OrderItemResponse::from)
                             .toList();
-                    return OrderResponse.from(order, items);
+                    String paymentId = findPaymentId(order.getId());
+                    return OrderResponse.from(order, items, paymentId);
                 })
                 .toList();
     }
@@ -143,7 +177,18 @@ public class OrderService {
                 .map(OrderItemResponse::from)
                 .toList();
 
-        return OrderResponse.from(order, items);
+        String paymentId = findPaymentId(order.getId());
+        return OrderResponse.from(order, items, paymentId);
+    }
+
+    private String findPaymentId(UUID orderId) {
+        return paymentRepository.findByOrderId(orderId).stream()
+                .filter(p -> p.getStatus() == Payment.PaymentStatus.COMPLETED
+                        || p.getStatus() == Payment.PaymentStatus.REFUND_REQUESTED
+                        || p.getStatus() == Payment.PaymentStatus.REFUNDED)
+                .findFirst()
+                .map(p -> p.getId().toString())
+                .orElse(null);
     }
 
     @Transactional
@@ -170,11 +215,29 @@ public class OrderService {
         order.setUpdatedAt(Instant.now());
         order = orderRepository.save(order);
 
+        String statusMessage = switch (newStatus) {
+            case CONFIRMED -> "Your order has been confirmed.";
+            case SHIPPED -> "Your order has been shipped.";
+            case DELIVERED -> "Your order has been delivered.";
+            case CANCELLED -> "Your order has been cancelled.";
+            case RETURN_REQUESTED -> "Your return request has been submitted.";
+            case RETURNED -> "Your order has been returned.";
+            default -> "Your order status has been updated.";
+        };
+        notificationService.createNotification(
+                buyerId,
+                NotificationType.ORDER_UPDATE,
+                "Order Status Updated",
+                statusMessage,
+                order.getId(),
+                "ORDER"
+        );
+
         List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
                 .map(OrderItemResponse::from)
                 .toList();
 
-        return OrderResponse.from(order, items);
+        return OrderResponse.from(order, items, findPaymentId(order.getId()));
     }
 
     @Transactional
@@ -211,11 +274,20 @@ public class OrderService {
 
         order = orderRepository.save(order);
 
+        notificationService.createNotification(
+                buyerId,
+                NotificationType.ORDER_UPDATE,
+                "Order Cancelled",
+                "Your order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been cancelled.",
+                order.getId(),
+                "ORDER"
+        );
+
         List<OrderItemResponse> itemResponses = orderItems.stream()
                 .map(OrderItemResponse::from)
                 .toList();
 
-        return OrderResponse.from(order, itemResponses);
+        return OrderResponse.from(order, itemResponses, findPaymentId(order.getId()));
     }
 
     @Transactional
@@ -243,11 +315,80 @@ public class OrderService {
         order.setUpdatedAt(Instant.now());
         order = orderRepository.save(order);
 
+        final Order savedOrder = order;
+        UUID orderIdRef = savedOrder.getId();
+        paymentRepository.findByOrderIdAndStatus(orderIdRef, Payment.PaymentStatus.COMPLETED)
+                .ifPresent(payment -> {
+                    payment.setStatus(Payment.PaymentStatus.REFUND_REQUESTED);
+                    payment.setUpdatedAt(Instant.now());
+                    paymentRepository.save(payment);
+                    savedOrder.setPaymentStatus(Order.PaymentStatus.REFUND_REQUESTED);
+                    orderRepository.save(savedOrder);
+
+                    notificationService.createNotification(
+                            buyerId,
+                            NotificationType.PAYMENT_UPDATE,
+                            "Refund Requested",
+                            "Your refund for order #" + orderIdRef.toString().substring(0, 8).toUpperCase() + " has been automatically submitted.",
+                            orderIdRef,
+                            "ORDER"
+                    );
+                });
+
         List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
                 .map(OrderItemResponse::from)
                 .toList();
 
-        return OrderResponse.from(order, items);
+        return OrderResponse.from(order, items, findPaymentId(order.getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getAllOrders() {
+        List<Order> orders = orderRepository.findAll();
+        return orders.stream()
+                .map(order -> {
+                    List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
+                            .map(OrderItemResponse::from)
+                            .toList();
+                    String paymentId = findPaymentId(order.getId());
+                    return OrderResponse.from(order, items, paymentId);
+                })
+                .toList();
+    }
+
+    @Transactional
+    public OrderResponse updateStatusAsAdmin(UUID orderId, OrderStatus newStatus) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", orderId));
+
+        if (newStatus == OrderStatus.SHIPPED && order.getPaymentStatus() != Order.PaymentStatus.PAID) {
+            throw new BusinessException("Order must be paid before shipping");
+        }
+
+        OrderStatus currentStatus = order.getStatus();
+        validateStatusTransition(currentStatus, newStatus);
+
+        order.setStatus(newStatus);
+        if (newStatus == OrderStatus.DELIVERED) {
+            order.setDeliveredAt(Instant.now());
+        }
+        order.setUpdatedAt(Instant.now());
+        order = orderRepository.save(order);
+
+        notificationService.createNotification(
+                order.getBuyerId(),
+                NotificationType.ORDER_UPDATE,
+                "Order Status Updated",
+                "Your order #" + order.getId().toString().substring(0, 8).toUpperCase() + " status has been updated to " + newStatus.name() + ".",
+                order.getId(),
+                "ORDER"
+        );
+
+        List<OrderItemResponse> items = orderItemRepository.findByOrderId(order.getId()).stream()
+                .map(OrderItemResponse::from)
+                .toList();
+
+        return OrderResponse.from(order, items, findPaymentId(order.getId()));
     }
 
     private void validateStatusTransition(OrderStatus current, OrderStatus next) {

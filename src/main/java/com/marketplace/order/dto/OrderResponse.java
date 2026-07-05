@@ -21,9 +21,14 @@ public record OrderResponse(
         String returnReason,
         Instant returnRequestedAt,
         List<OrderItemResponse> items,
-        Instant createdAt
+        Instant createdAt,
+        String paymentId
 ) {
     public static OrderResponse from(Order order, List<OrderItemResponse> items) {
+        return from(order, items, null);
+    }
+
+    public static OrderResponse from(Order order, List<OrderItemResponse> items, String paymentId) {
         return new OrderResponse(
                 order.getId().toString(),
                 order.getStatus().name(),
@@ -39,7 +44,8 @@ public record OrderResponse(
                 order.getReturnReason(),
                 order.getReturnRequestedAt(),
                 items,
-                order.getCreatedAt()
+                order.getCreatedAt(),
+                paymentId
         );
     }
 }

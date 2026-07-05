@@ -6,6 +6,7 @@ import com.marketplace.user.dto.ForgotPasswordRequest;
 import com.marketplace.user.dto.LoginRequest;
 import com.marketplace.user.dto.RefreshTokenRequest;
 import com.marketplace.user.dto.RegisterRequest;
+import com.marketplace.user.dto.ResendVerificationTokenRequest;
 import com.marketplace.user.dto.ResetPasswordRequest;
 import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
@@ -61,6 +62,13 @@ public class AuthController {
 	public ResponseEntity<ApiResponse<Void>> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
 		authService.verifyEmail(request);
 		return ResponseEntity.ok(ApiResponse.ok("Email verified successfully", null));
+	}
+
+	@PostMapping("/resend-verification")
+	public ResponseEntity<ApiResponse<Void>> resendVerificationToken(
+			@Valid @RequestBody ResendVerificationTokenRequest request) {
+		authService.resendVerificationToken(request);
+		return ResponseEntity.ok(ApiResponse.ok("If the email exists and is unverified, a new verification token has been sent", null));
 	}
 
 	@PostMapping("/forgot-password")

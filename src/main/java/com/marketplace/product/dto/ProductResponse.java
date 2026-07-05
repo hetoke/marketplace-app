@@ -16,6 +16,8 @@ public record ProductResponse(
         String description,
         BigDecimal price,
         Integer stock,
+        Double averageRating,
+        Integer reviewCount,
         boolean isActive,
         List<ProductImageResponse> images,
         Instant createdAt
@@ -30,6 +32,8 @@ public record ProductResponse(
                 product.getDescription(),
                 product.getPrice(),
                 product.getStock(),
+                product.getAverageRating(),
+                product.getReviewCount(),
                 product.isActive(),
                 images.stream().map(ProductImageResponse::from).toList(),
                 product.getCreatedAt()

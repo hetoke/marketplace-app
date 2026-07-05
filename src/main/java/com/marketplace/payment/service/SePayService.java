@@ -1,8 +1,15 @@
 package com.marketplace.payment.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.marketplace.payment.config.SePayProperties;
 import com.marketplace.payment.dto.SePayCheckoutResponse;
+import com.marketplace.payment.dto.SePayRefundResponse;
 import com.marketplace.shared.exception.BusinessException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
@@ -69,6 +76,56 @@ public class SePayService {
         log.info("SEPay form fields: {}", fields);
 
         return new SePayCheckoutResponse(props.getCheckoutUrl(), fields);
+    }
+
+    public SePayRefundResponse refundTransaction(String orderInvoiceNumber) {
+        if (props.isSandbox()) {
+            log.info("[SANDBOX] Simulating SePay refund: invoice={}", orderInvoiceNumber);
+            return SePayRefundResponse.success(orderInvoiceNumber);
+        }
+
+        if (props.merchantId() == null || props.merchantId().isBlank()
+                || props.secretKey() == null || props.secretKey().isBlank()) {
+            throw new BusinessException("SEPay credentials are not configured");
+        }
+
+        try {
+            String authHeader = "Basic " + Base64.getEncoder().encodeToString(
+                (props.merchantId() + ":" + props.secretKey()).getBytes(StandardCharsets.UTF_8)
+            );
+
+            String requestBody = "{\"order_invoice_number\":\"" + orderInvoiceNumber + "\"}";
+
+            HttpClient httpClient = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(props.getRefundApiUrl()))
+                .header("Authorization", authHeader)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode json = mapper.readTree(response.body());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                String message = json.has("message") ? json.get("message").asText() : "Refund processed";
+                log.info("SePay refund success: invoice={}, status={}", orderInvoiceNumber, response.statusCode());
+                return new SePayRefundResponse(true, message, orderInvoiceNumber);
+            } else {
+                String errorMessage = json.has("message") ? json.get("message").asText() : "HTTP " + response.statusCode();
+                log.error("SePay refund failed: invoice={}, status={}, response={}", orderInvoiceNumber, response.statusCode(), response.body());
+                return SePayRefundResponse.failure(errorMessage);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("SePay refund interrupted: invoice={}", orderInvoiceNumber, e);
+            return SePayRefundResponse.failure("Refund request interrupted");
+        } catch (Exception e) {
+            log.error("SePay refund error: invoice={}", orderInvoiceNumber, e);
+            return SePayRefundResponse.failure("Refund request failed: " + e.getMessage());
+        }
     }
 
     private String buildSignatureInput(Map<String, String> fields) {

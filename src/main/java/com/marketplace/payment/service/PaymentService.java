@@ -1,5 +1,7 @@
 package com.marketplace.payment.service;
 
+import com.marketplace.notification.model.NotificationType;
+import com.marketplace.notification.service.NotificationService;
 import com.marketplace.order.model.Order;
 import com.marketplace.order.model.OrderStatus;
 import com.marketplace.order.repository.OrderRepository;
@@ -10,6 +12,7 @@ import com.marketplace.payment.dto.PaymentHistoryResponse;
 import com.marketplace.payment.dto.PaymentResponse;
 import com.marketplace.payment.dto.RefundPaymentRequest;
 import com.marketplace.payment.dto.SePayCheckoutResponse;
+import com.marketplace.payment.dto.SePayRefundResponse;
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentMethod;
 import com.marketplace.payment.model.Payment.PaymentStatus;
@@ -37,13 +40,16 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final SePayService sePayService;
     private final ObjectMapper objectMapper;
+    private final NotificationService notificationService;
 
     public PaymentService(PaymentRepository paymentRepository, OrderRepository orderRepository,
-                          SePayService sePayService, ObjectMapper objectMapper) {
+                          SePayService sePayService, ObjectMapper objectMapper,
+                          NotificationService notificationService) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.sePayService = sePayService;
         this.objectMapper = objectMapper;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -157,6 +163,18 @@ public class PaymentService {
 
         orderRepository.confirmOnPayment(payment.getOrderId(), Order.PaymentStatus.PAID, OrderStatus.CONFIRMED, Instant.now());
 
+        Order order = orderRepository.findById(payment.getOrderId()).orElse(null);
+        if (order != null) {
+            notificationService.createNotification(
+                    order.getBuyerId(),
+                    NotificationType.PAYMENT_UPDATE,
+                    "Payment Successful",
+                    "Your payment for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been completed.",
+                    order.getId(),
+                    "ORDER"
+            );
+        }
+
         log.info("Payment completed via IPN: paymentId={}, orderId={}, invoice={}",
                 payment.getId(), payment.getOrderId(), invoiceNumber);
     }
@@ -215,6 +233,15 @@ public class PaymentService {
         payment = paymentRepository.save(payment);
         orderRepository.save(order);
 
+        notificationService.createNotification(
+                buyerId,
+                NotificationType.PAYMENT_UPDATE,
+                "Refund Requested",
+                "Your refund request for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been submitted.",
+                order.getId(),
+                "ORDER"
+        );
+
         log.info("Refund requested: paymentId={}, orderId={}", payment.getId(), order.getId());
 
         return PaymentResponse.from(payment);
@@ -232,6 +259,17 @@ public class PaymentService {
         Order order = orderRepository.findById(payment.getOrderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order", "id", payment.getOrderId()));
 
+        SePayRefundResponse refundResponse = sePayService.refundTransaction(payment.getInvoiceNumber());
+
+        if (!refundResponse.success()) {
+            payment.setFailureReason("SePay refund failed: " + refundResponse.message());
+            payment.setUpdatedAt(Instant.now());
+            paymentRepository.save(payment);
+            log.error("SePay refund rejected: paymentId={}, invoice={}, reason={}",
+                    paymentId, payment.getInvoiceNumber(), refundResponse.message());
+            throw new BusinessException("SePay refund failed: " + refundResponse.message());
+        }
+
         payment.setStatus(PaymentStatus.REFUNDED);
         payment.setRefundedAt(Instant.now());
         payment.setUpdatedAt(Instant.now());
@@ -242,7 +280,16 @@ public class PaymentService {
         Payment savedPayment = paymentRepository.save(payment);
         orderRepository.save(order);
 
-        log.info("Refund approved: paymentId={}, orderId={}", savedPayment.getId(), order.getId());
+        notificationService.createNotification(
+                order.getBuyerId(),
+                NotificationType.PAYMENT_UPDATE,
+                "Refund Approved",
+                "Your refund for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been approved.",
+                order.getId(),
+                "ORDER"
+        );
+
+        log.info("Refund approved: paymentId={}, orderId={}, invoice={}", savedPayment.getId(), order.getId(), payment.getInvoiceNumber());
 
         return PaymentResponse.from(savedPayment);
     }

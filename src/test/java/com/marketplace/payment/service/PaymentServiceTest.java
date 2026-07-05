@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.marketplace.notification.service.NotificationService;
 import com.marketplace.order.model.Order;
 import com.marketplace.order.model.OrderStatus;
 import com.marketplace.order.repository.OrderRepository;
@@ -18,6 +19,7 @@ import com.marketplace.payment.config.SePayProperties;
 import com.marketplace.payment.dto.PaymentResponse;
 import com.marketplace.payment.dto.RefundPaymentRequest;
 import com.marketplace.payment.dto.SePayCheckoutResponse;
+import com.marketplace.payment.dto.SePayRefundResponse;
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentStatus;
 import com.marketplace.payment.repository.PaymentRepository;
@@ -48,6 +50,9 @@ class PaymentServiceTest {
 
     @Mock
     private SePayService sePayService;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private PaymentService paymentService;
@@ -287,9 +292,11 @@ class PaymentServiceTest {
     void approveRefund_success() {
         Order order = createOrder(OrderStatus.RETURN_REQUESTED, Order.PaymentStatus.REFUND_REQUESTED);
         Payment payment = createPayment(PaymentStatus.REFUND_REQUESTED);
+        payment.setInvoiceNumber("ORD12345678");
 
         when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
         when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(sePayService.refundTransaction("ORD12345678")).thenReturn(SePayRefundResponse.success("ORD12345678"));
         when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PaymentResponse response = paymentService.approveRefund(PAYMENT_ID);
@@ -297,6 +304,7 @@ class PaymentServiceTest {
         assertThat(response.status()).isEqualTo("REFUNDED");
         assertThat(response.refundedAt()).isNotNull();
         assertThat(order.getPaymentStatus()).isEqualTo(Order.PaymentStatus.REFUNDED);
+        verify(sePayService).refundTransaction("ORD12345678");
     }
 
     @Test
@@ -308,6 +316,25 @@ class PaymentServiceTest {
         assertThatThrownBy(() -> paymentService.approveRefund(PAYMENT_ID))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("pending refund request");
+    }
+
+    @Test
+    void approveRefund_sepayFails_throwsBusinessException() {
+        Order order = createOrder(OrderStatus.RETURN_REQUESTED, Order.PaymentStatus.REFUND_REQUESTED);
+        Payment payment = createPayment(PaymentStatus.REFUND_REQUESTED);
+        payment.setInvoiceNumber("ORD12345678");
+
+        when(paymentRepository.findById(PAYMENT_ID)).thenReturn(Optional.of(payment));
+        when(orderRepository.findById(ORDER_ID)).thenReturn(Optional.of(order));
+        when(sePayService.refundTransaction("ORD12345678")).thenReturn(SePayRefundResponse.failure("Insufficient funds"));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThatThrownBy(() -> paymentService.approveRefund(PAYMENT_ID))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("SePay refund failed");
+
+        assertThat(payment.getFailureReason()).contains("SePay refund failed");
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.REFUND_REQUESTED);
     }
 
     @Test
