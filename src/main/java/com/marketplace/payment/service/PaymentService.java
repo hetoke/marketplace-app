@@ -236,8 +236,8 @@ public class PaymentService {
         notificationService.createNotification(
                 buyerId,
                 NotificationType.PAYMENT_UPDATE,
-                "Refund Requested",
-                "Your refund request for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been submitted.",
+                "Refund Processing",
+                "Your refund for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " is being processed. You will receive the money within 3-5 business days.",
                 order.getId(),
                 "ORDER"
         );
@@ -283,8 +283,8 @@ public class PaymentService {
         notificationService.createNotification(
                 order.getBuyerId(),
                 NotificationType.PAYMENT_UPDATE,
-                "Refund Approved",
-                "Your refund for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been approved.",
+                "Refund Completed",
+                "Your refund for order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been completed. The money will appear in your account within 1-2 business days.",
                 order.getId(),
                 "ORDER"
         );

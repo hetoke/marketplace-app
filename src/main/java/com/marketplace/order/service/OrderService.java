@@ -224,10 +224,20 @@ public class OrderService {
             case RETURNED -> "Your order has been returned.";
             default -> "Your order status has been updated.";
         };
+        String title = switch (newStatus) {
+            case CONFIRMED -> "Order Confirmed";
+            case SHIPPED -> "Order On Its Way";
+            case DELIVERED -> "Order Delivered";
+            case CANCELLED -> "Order Cancelled";
+            case RETURN_REQUESTED -> "Return Requested";
+            case RETURNED -> "Order Returned";
+            default -> "Order Updated";
+        };
+
         notificationService.createNotification(
                 buyerId,
                 NotificationType.ORDER_UPDATE,
-                "Order Status Updated",
+                title,
                 statusMessage,
                 order.getId(),
                 "ORDER"
@@ -328,8 +338,8 @@ public class OrderService {
                     notificationService.createNotification(
                             buyerId,
                             NotificationType.PAYMENT_UPDATE,
-                            "Refund Requested",
-                            "Your refund for order #" + orderIdRef.toString().substring(0, 8).toUpperCase() + " has been automatically submitted.",
+                            "Refund Processing",
+                            "Your refund for order #" + orderIdRef.toString().substring(0, 8).toUpperCase() + " is being processed. You will receive the money within 3-5 business days.",
                             orderIdRef,
                             "ORDER"
                     );
@@ -375,11 +385,21 @@ public class OrderService {
         order.setUpdatedAt(Instant.now());
         order = orderRepository.save(order);
 
+        String statusLabel = switch (newStatus) {
+            case CONFIRMED -> "confirmed";
+            case SHIPPED -> "on its way";
+            case DELIVERED -> "delivered";
+            case CANCELLED -> "cancelled";
+            case RETURN_REQUESTED -> "return requested";
+            case RETURNED -> "returned";
+            default -> "updated";
+        };
+
         notificationService.createNotification(
                 order.getBuyerId(),
                 NotificationType.ORDER_UPDATE,
-                "Order Status Updated",
-                "Your order #" + order.getId().toString().substring(0, 8).toUpperCase() + " status has been updated to " + newStatus.name() + ".",
+                "Order " + statusLabel.substring(0, 1).toUpperCase() + statusLabel.substring(1),
+                "Your order #" + order.getId().toString().substring(0, 8).toUpperCase() + " has been " + statusLabel + ".",
                 order.getId(),
                 "ORDER"
         );
