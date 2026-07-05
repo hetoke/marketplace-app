@@ -59,6 +59,12 @@ app:
     cancel-url: ${SEPAY_CANCEL_URL:http://localhost:3000/orders/{orderId}?payment=cancelled}
   webhook:
     secret: ${WEBHOOK_SECRET:changeme}
+  oidc:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/v1/auth/oidc/callback}
+      scopes: openid email profile
   upload:
     max-images-per-product: ${UPLOAD_MAX_IMAGES_PER_PRODUCT:10}
     max-file-size-bytes: ${UPLOAD_MAX_FILE_SIZE:5242880}

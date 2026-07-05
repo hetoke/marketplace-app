@@ -12,22 +12,29 @@ import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.dto.VerifyEmailRequest;
 import com.marketplace.user.service.AuthService;
+import com.marketplace.user.service.OidcService;
 import jakarta.validation.Valid;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.view.RedirectView;
 
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
 
 	private final AuthService authService;
+	private final OidcService oidcService;
 
-	public AuthController(AuthService authService) {
+	public AuthController(AuthService authService, OidcService oidcService) {
 		this.authService = authService;
+		this.oidcService = oidcService;
 	}
 
 	@PostMapping("/register")
@@ -81,5 +88,27 @@ public class AuthController {
 	public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
 		authService.resetPassword(request);
 		return ResponseEntity.ok(ApiResponse.ok("Password reset successfully", null));
+	}
+
+	@GetMapping("/oidc/login")
+	public RedirectView oidcLogin(@RequestParam(defaultValue = "google") String provider) {
+		String authorizationUrl = oidcService.getAuthorizationUrl();
+		return new RedirectView(authorizationUrl);
+	}
+
+	@GetMapping("/oidc/callback")
+	public RedirectView oidcCallback(@RequestParam String code, @RequestParam String state) {
+		String oneTimeCode = oidcService.handleCallback(code, state);
+		return new RedirectView("http://localhost:3000/auth/callback?code=" + oneTimeCode);
+	}
+
+	@PostMapping("/oidc/token")
+	public ResponseEntity<ApiResponse<AuthResponse>> oidcToken(@RequestBody Map<String, String> body) {
+		String code = body.get("code");
+		if (code == null || code.isBlank()) {
+			return ResponseEntity.badRequest().body(ApiResponse.ok("Authorization code is required", null));
+		}
+		AuthResponse auth = oidcService.exchangeOneTimeCode(code);
+		return ResponseEntity.ok(ApiResponse.ok("OIDC login successful", auth));
 	}
 }
