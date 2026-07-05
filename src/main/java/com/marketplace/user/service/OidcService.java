@@ -69,6 +69,9 @@ public class OidcService {
 
     public String getAuthorizationUrl() {
         OidcProperties.Google google = oidcProperties.getGoogle();
+        if (google.getClientId() == null || google.getClientId().isBlank()) {
+            throw new BusinessException("Google OAuth is not configured. Set GOOGLE_CLIENT_ID environment variable.");
+        }
         String state = UUID.randomUUID().toString();
         stateStore.put(state, Instant.now());
 
