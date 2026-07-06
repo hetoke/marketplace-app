@@ -3,6 +3,7 @@ package com.marketplace.shared.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.List;
+import org.apache.tomcat.util.http.InvalidParameterException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -85,7 +86,7 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex,
 			HttpServletRequest request) {
-		log.warn("Malformed request body at {}", request.getRequestURI(), ex);
+		log.debug("Malformed request body at {}", request.getRequestURI());
 		ErrorResponse body = ErrorResponse.builder()
 				.status(HttpStatus.BAD_REQUEST.value())
 				.error(HttpStatus.BAD_REQUEST.getReasonPhrase())
@@ -147,6 +148,20 @@ public class GlobalExceptionHandler {
 				.timestamp(Instant.now())
 				.build();
 		return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(body);
+	}
+
+	@ExceptionHandler(InvalidParameterException.class)
+	public ResponseEntity<ErrorResponse> handleInvalidParameter(InvalidParameterException ex,
+			HttpServletRequest request) {
+		log.debug("Invalid query parameter at {}: {}", request.getRequestURI(), ex.getMessage());
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.BAD_REQUEST.value())
+				.error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+				.message("Invalid query parameter")
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
+		return ResponseEntity.badRequest().body(body);
 	}
 
 	@ExceptionHandler(ObjectOptimisticLockingFailureException.class)
