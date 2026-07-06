@@ -61,10 +61,12 @@ public class AuthController {
 
 	@PostMapping("/logout")
 	public ResponseEntity<ApiResponse<Void>> logout() {
-		// userId is set by SecurityContext via JWT filter
-		String userId = org.springframework.security.core.context.SecurityContextHolder
-				.getContext().getAuthentication().getName();
-		authService.logout(userId);
+		var auth = org.springframework.security.core.context.SecurityContextHolder
+				.getContext().getAuthentication();
+		if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getName())) {
+			return ResponseEntity.ok(ApiResponse.ok("Logged out successfully", null));
+		}
+		authService.logout(auth.getName());
 		return ResponseEntity.ok(ApiResponse.ok("Logged out successfully", null));
 	}
 

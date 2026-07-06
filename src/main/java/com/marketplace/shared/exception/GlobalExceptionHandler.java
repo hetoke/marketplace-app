@@ -190,6 +190,20 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
 	}
 
+	@ExceptionHandler(IllegalArgumentException.class)
+	public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex,
+			HttpServletRequest request) {
+		log.debug("Illegal argument at {}: {}", request.getRequestURI(), ex.getMessage());
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.BAD_REQUEST.value())
+				.error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+				.message(ex.getMessage())
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
+		return ResponseEntity.badRequest().body(body);
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ErrorResponse> handleGeneric(Exception ex, HttpServletRequest request) {
 		log.error("Unhandled exception at {}", request.getRequestURI(), ex);
