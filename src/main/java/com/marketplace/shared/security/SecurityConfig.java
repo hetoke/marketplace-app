@@ -37,7 +37,7 @@ public class SecurityConfig {
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/api/v1/auth/**").permitAll()
-						.requestMatchers("/swagger-ui/**", "/api-docs/**", "/swagger-ui.html").permitAll()
+						.requestMatchers("/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 						.requestMatchers("/api/v1/webhooks/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/payments/ipn").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/v1/users/avatar/upload-url").authenticated()
