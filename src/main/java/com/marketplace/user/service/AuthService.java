@@ -106,7 +106,7 @@ public class AuthService {
 		if (user.isMfaEnabled()) {
 			String mfaToken = jwtTokenProvider.generateMfaToken(user.getId().toString());
 			mfaService.sendLoginOTP(user);
-			return new AuthResponse(null, null, null, true, mfaToken);
+			return new AuthResponse(null, null, null, true, mfaToken, null);
 		}
 
 		return generateTokenPair(user);

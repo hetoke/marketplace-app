@@ -94,7 +94,7 @@ public class MFAService {
         List<String> recoveryCodes = generateRecoveryCodes(user);
         log.info("MFA enabled for {}, recovery codes: {}", user.getEmail(), recoveryCodes);
 
-        return new AuthResponse(null, null, UserResponse.from(user));
+        return new AuthResponse(null, null, UserResponse.from(user), false, null, recoveryCodes);
     }
 
     @Transactional
