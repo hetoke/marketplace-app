@@ -57,13 +57,8 @@ public class PaymentController {
         }
 
         log.info("IPN received: bodyLength={}", rawBody.length());
-        try {
-            paymentService.handleIpnNotification(rawBody, secretKey);
-            return ResponseEntity.ok(Map.of("success", true));
-        } catch (Exception e) {
-            log.error("IPN processing failed: {}", e.getMessage(), e);
-            return ResponseEntity.internalServerError().body(Map.of("success", false, "error", e.getMessage()));
-        }
+        paymentService.handleIpnNotification(rawBody, secretKey);
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     @PostMapping("/api/v1/payments/callback")
