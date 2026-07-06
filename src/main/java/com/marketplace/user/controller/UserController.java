@@ -62,6 +62,9 @@ public class UserController {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
 				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+		if (user.getAuthenticationType() == User.AuthenticationType.OIDC) {
+			return ResponseEntity.badRequest().body(ApiResponse.ok("MFA is not available for Google sign-in accounts", null));
+		}
 		mfaService.setupMFA(user);
 		return ResponseEntity.ok(ApiResponse.ok("OTP sent to your email", Map.of("message", "OTP sent to your email")));
 	}
