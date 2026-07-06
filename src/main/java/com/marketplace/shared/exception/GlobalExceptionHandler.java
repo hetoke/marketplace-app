@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import org.springframework.web.servlet.resource.NoResourceFoundException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -159,6 +161,18 @@ public class GlobalExceptionHandler {
 				.timestamp(Instant.now())
 				.build();
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+	}
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex, HttpServletRequest request) {
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.NOT_FOUND.value())
+				.error(HttpStatus.NOT_FOUND.getReasonPhrase())
+				.message("Endpoint not found: " + request.getRequestURI())
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
 	}
 
 	@ExceptionHandler(Exception.class)
