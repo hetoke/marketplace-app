@@ -1,5 +1,6 @@
 package com.marketplace.user.service;
 
+import com.marketplace.email.EmailService;
 import com.marketplace.shared.dto.ApiResponse;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.EmailVerificationRequiredException;
@@ -43,19 +44,22 @@ public class AuthService {
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final MFAService mfaService;
+	private final EmailService emailService;
 
 	public AuthService(UserRepository userRepository,
 					   RefreshTokenRepository refreshTokenRepository,
 					   VerificationTokenRepository verificationTokenRepository,
 					   PasswordEncoder passwordEncoder,
 					   JwtTokenProvider jwtTokenProvider,
-					   MFAService mfaService) {
+					   MFAService mfaService,
+					   EmailService emailService) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.verificationTokenRepository = verificationTokenRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.mfaService = mfaService;
+		this.emailService = emailService;
 	}
 
 	@Transactional
@@ -78,7 +82,7 @@ public class AuthService {
 		userRepository.save(user);
 
 		String verificationToken = createVerificationToken(user);
-		log.info("Email verification token for {}: {}", user.getEmail(), verificationToken);
+		emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 
 		return UserResponse.from(user);
 	}
@@ -174,7 +178,7 @@ public class AuthService {
 		verificationTokenRepository.deleteByUserId(user.getId());
 
 		String verificationToken = createVerificationToken(user);
-		log.info("Resent email verification token for {}: {}", user.getEmail(), verificationToken);
+		emailService.sendVerificationEmail(user.getEmail(), verificationToken);
 	}
 
 	@Transactional
@@ -188,7 +192,7 @@ public class AuthService {
 		VerificationToken vToken = new VerificationToken(user, resetToken, Instant.now().plus(1, ChronoUnit.HOURS));
 		verificationTokenRepository.save(vToken);
 
-		log.info("Password reset token for {}: {}", user.getEmail(), resetToken);
+		emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
 	}
 
 	@Transactional

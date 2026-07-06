@@ -1,5 +1,6 @@
 package com.marketplace.user.service;
 
+import com.marketplace.email.EmailService;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.security.JwtTokenProvider;
 import com.marketplace.shared.security.TokenType;
@@ -40,19 +41,22 @@ public class MFAService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final EmailService emailService;
 
     public MFAService(MFAChallengeRepository mfaChallengeRepository,
                       RecoveryCodeRepository recoveryCodeRepository,
                       UserRepository userRepository,
                       RefreshTokenRepository refreshTokenRepository,
                       PasswordEncoder passwordEncoder,
-                      JwtTokenProvider jwtTokenProvider) {
+                      JwtTokenProvider jwtTokenProvider,
+                      EmailService emailService) {
         this.mfaChallengeRepository = mfaChallengeRepository;
         this.recoveryCodeRepository = recoveryCodeRepository;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -69,7 +73,7 @@ public class MFAService {
                 Instant.now().plus(CHALLENGE_EXPIRY_MINUTES, ChronoUnit.MINUTES));
         mfaChallengeRepository.save(challenge);
 
-        log.info("MFA setup OTP for {}: {}", user.getEmail(), otp);
+        emailService.sendMfaOtpEmail(user.getEmail(), otp);
         return otp;
     }
 
@@ -127,7 +131,7 @@ public class MFAService {
                 Instant.now().plus(CHALLENGE_EXPIRY_MINUTES, ChronoUnit.MINUTES));
         mfaChallengeRepository.save(challenge);
 
-        log.info("MFA disable OTP for {}: {}", user.getEmail(), otp);
+        emailService.sendMfaOtpEmail(user.getEmail(), otp);
         return otp;
     }
 
@@ -141,7 +145,7 @@ public class MFAService {
                 Instant.now().plus(CHALLENGE_EXPIRY_MINUTES, ChronoUnit.MINUTES));
         mfaChallengeRepository.save(challenge);
 
-        log.info("MFA login OTP for {}: {}", user.getEmail(), otp);
+        emailService.sendMfaOtpEmail(user.getEmail(), otp);
         return otp;
     }
 

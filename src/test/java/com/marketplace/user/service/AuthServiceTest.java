@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.marketplace.email.EmailService;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.EmailVerificationRequiredException;
 import com.marketplace.shared.security.JwtTokenProvider;
@@ -54,6 +55,9 @@ class AuthServiceTest {
 
 	@Mock
 	private JwtTokenProvider jwtTokenProvider;
+
+	@Mock
+	private EmailService emailService;
 
 	@InjectMocks
 	private AuthService authService;
