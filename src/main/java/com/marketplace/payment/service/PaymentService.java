@@ -112,7 +112,7 @@ public class PaymentService {
     @Transactional
     public void handleIpnNotification(String rawBody, String secretKey) {
         if (!sePayService.verifyIpnSecretKey(secretKey)) {
-            log.warn("IPN secret key verification failed");
+            log.debug("IPN secret key verification failed");
             throw new BusinessException("Invalid IPN secret key");
         }
 
