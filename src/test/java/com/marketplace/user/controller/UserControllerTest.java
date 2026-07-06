@@ -55,7 +55,7 @@ class UserControllerTest {
 
 	private UserResponse createTestUserResponse() {
 		return new UserResponse(UUID.randomUUID().toString(), "test@test.com", "Test User", null,
-				User.Role.BUYER, true, null, null, null, null, null);
+				User.Role.BUYER, true, false, null, null, null, null, null);
 	}
 
 	// ==================== GET PROFILE ====================
@@ -95,7 +95,7 @@ class UserControllerTest {
 	void updateProfile_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", "Updated Name", null,
-				User.Role.BUYER, true, null, null, null, null, null);
+				User.Role.BUYER, true, false, null, null, null, null, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -110,7 +110,7 @@ class UserControllerTest {
 	void updateProfile_displayNameLowerBound1char_success() throws Exception {
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", "A", null,
-				User.Role.BUYER, true, null, null, null, null, null);
+				User.Role.BUYER, true, false, null, null, null, null, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -125,7 +125,7 @@ class UserControllerTest {
 		String name255 = "A".repeat(255);
 		UserResponse userResponse = new UserResponse(
 				UUID.randomUUID().toString(), "test@test.com", name255, null,
-				User.Role.BUYER, true, null, null, null, null, null);
+				User.Role.BUYER, true, false, null, null, null, null, null);
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")

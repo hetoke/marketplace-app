@@ -15,13 +15,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-@Component
+	@Component
 public class JwtTokenProvider {
 
 	private static final Logger log = LoggerFactory.getLogger(JwtTokenProvider.class);
 	private final JwtProperties jwtProperties;
 	private final SecretKey accessKey;
 	private final SecretKey refreshKey;
+	private final SecretKey mfaKey;
 
 	public JwtTokenProvider(JwtProperties jwtProperties) {
 		this.jwtProperties = jwtProperties;
@@ -29,6 +30,8 @@ public class JwtTokenProvider {
 				java.util.Base64.getEncoder().encodeToString(jwtProperties.getAccessSecret().getBytes())));
 		this.refreshKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
 				java.util.Base64.getEncoder().encodeToString(jwtProperties.getRefreshSecret().getBytes())));
+		this.mfaKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
+				java.util.Base64.getEncoder().encodeToString((jwtProperties.getRefreshSecret() + "-mfa").getBytes())));
 	}
 
 	public String generateAccessToken(String userId, String email, String role) {
@@ -58,12 +61,29 @@ public class JwtTokenProvider {
 				.compact();
 	}
 
+	public String generateMfaToken(String userId) {
+		Date now = new Date();
+		Date expiry = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes
+
+		return Jwts.builder()
+				.subject(userId)
+				.claim("type", "mfa")
+				.issuedAt(now)
+				.expiration(expiry)
+				.signWith(mfaKey)
+				.compact();
+	}
+
 	public String getUserIdFromToken(String token, TokenType type) {
 		return parseClaims(token, type).getSubject();
 	}
 
 	public boolean validateToken(String token, TokenType type) {
-		SecretKey key = (type == TokenType.ACCESS) ? accessKey : refreshKey;
+		SecretKey key = switch (type) {
+			case ACCESS -> accessKey;
+			case REFRESH -> refreshKey;
+			case MFA -> mfaKey;
+		};
 		try {
 			Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
 			return true;
@@ -82,7 +102,11 @@ public class JwtTokenProvider {
 	}
 
 	private Claims parseClaims(String token, TokenType type) {
-		SecretKey key = (type == TokenType.ACCESS) ? accessKey : refreshKey;
+		SecretKey key = switch (type) {
+			case ACCESS -> accessKey;
+			case REFRESH -> refreshKey;
+			case MFA -> mfaKey;
+		};
 		return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
 	}
 }

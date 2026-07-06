@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant FE as Next.js (:3000)
+    participant BE as Spring Boot (:8080)
+    participant Email as Email (logged)
+
+    User->>FE: Enter email + password → Sign In
+    FE->>BE: POST /api/v1/auth/login { email, password }
+    BE->>BE: Validate credentials
+
+    alt MFA not enabled
+        BE-->>FE: { accessToken, refreshToken, user }
+        FE->>FE: Set cookies, setUser()
+        FE-->>User: Logged in ✓
+    else MFA enabled
+        BE->>BE: Generate mfaToken (5min JWT, type="mfa")
+        BE->>BE: Generate 6-digit OTP, hash with BCrypt
+        BE->>BE: Save MfaChallenge (userId, type=LOGIN, expiresAt)
+        BE->>Email: Send OTP to user's email
+        BE-->>FE: { requiresMfa: true, mfaToken: "..." }
+        FE->>FE: Show OTP input form (hide email/password)
+        FE-->>User: "Mã OTP đã gửi đến email"
+
+        User->>FE: Enter 6-digit OTP
+        FE->>BE: POST /api/v1/auth/mfa/verify { mfaToken, code }
+        BE->>BE: Validate mfaToken (type="mfa", not expired)
+        BE->>BE: Find MfaChallenge (type=LOGIN)
+        BE->>BE: Check: not expired? attempts < 5?
+        BE->>BE: Compare OTP with stored BCrypt hash
+
+        alt OTP valid
+            BE->>BE: Delete MfaChallenge
+            BE->>BE: Generate access_token (15min) + refresh_token (7d)
+            BE-->>FE: { accessToken, refreshToken, user }
+            FE->>FE: Set cookies, setUser()
+            FE-->>User: Logged in ✓
+        else OTP invalid or expired
+            BE-->>FE: 400 "Invalid or expired OTP"
+            FE-->>User: Show error, allow retry
+        end
+    end

@@ -25,6 +25,8 @@ services:
       SEPAY_SUCCESS_URL: ${SEPAY_SUCCESS_URL:-http://localhost:3000/orders/{orderId}?payment=success}
       SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-http://localhost:3000/orders/{orderId}?payment=error}
       SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-http://localhost:3000/orders/{orderId}?payment=cancelled}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
     depends_on:
       db:
         condition: service_healthy

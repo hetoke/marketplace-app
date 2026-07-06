@@ -1,0 +1,31 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant FE as Next.js (:3000)
+    participant BE as Spring Boot (:8080)
+    participant Email as Email (logged)
+
+    User->>FE: Click "Bật MFA" on Profile page
+    FE->>BE: POST /api/v1/users/mfa/setup
+    BE->>BE: Generate 6-digit OTP, hash with BCrypt
+    BE->>BE: Save MfaChallenge (userId, type=SETUP, expiresAt)
+    BE->>Email: Send OTP to user's email
+    BE-->>FE: { message: "OTP sent" }
+    FE->>FE: Show OTP input form
+    FE-->>User: "Mã OTP đã gửi đến email"
+
+    User->>FE: Enter 6-digit OTP
+    FE->>BE: POST /api/v1/users/mfa/verify { code }
+    BE->>BE: Find MfaChallenge (type=SETUP)
+    BE->>BE: Validate OTP (not expired, attempts < 5)
+    BE->>BE: user.mfaEnabled = true
+    BE->>BE: Generate 10 recovery codes (8-char alphanumeric)
+    BE->>BE: Hash each with BCrypt, save to recovery_codes table
+    BE-->>FE: { recoveryCodes: ["AB12CD34", "EF56GH78", ...] }
+
+    FE->>FE: Display recovery codes in monospace grid
+    FE-->>User: "Lưu các mã khôi phục này"
+
+    User->>FE: Click "Đã lưu"
+    FE->>FE: Clear recovery codes from view
+    FE-->>User: MFA enabled ✓

@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant FE as Next.js (:3000)
+    participant BE as Spring Boot (:8080)
+    participant Email as Email (logged)
+
+    Note over User,Email: User lost authenticator app, uses recovery code at login
+
+    User->>FE: Enter email + password → Sign In
+    FE->>BE: POST /api/v1/auth/login { email, password }
+    BE->>BE: Validate credentials, mfaEnabled = true
+    BE->>BE: Generate mfaToken (5min)
+    BE->>Email: Send OTP (user won't receive / ignores)
+    BE-->>FE: { requiresMfa: true, mfaToken }
+
+    FE->>FE: Show OTP input form
+    FE-->>User: "Nhập mã OTP hoặc mã khôi phục"
+
+    User->>FE: Enter recovery code instead of OTP
+    FE->>BE: POST /api/v1/auth/mfa/recovery { mfaToken, recoveryCode }
+    BE->>BE: Validate mfaToken
+    BE->>BE: Find recovery_code by userId + used=false
+    BE->>BE: Compare recoveryCode with BCrypt hash
+
+    alt Recovery code valid
+        BE->>BE: Mark recovery_code.used = true
+        BE->>BE: Generate access_token + refresh_token
+        BE-->>FE: { accessToken, refreshToken, user }
+        FE->>FE: Set cookies, setUser()
+        FE-->>User: Logged in ✓
+
+        opt Recovery codes remaining <= 3
+            BE-->>FE: Warning: "Chỉ còn X mã khôi phục"
+            FE-->>User: Show warning banner
+        end
+    else Recovery code invalid or all used
+        BE-->>FE: 400 "Invalid or exhausted recovery codes"
+        FE-->>User: Show error
+    end

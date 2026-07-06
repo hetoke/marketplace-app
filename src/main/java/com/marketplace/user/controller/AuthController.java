@@ -12,6 +12,7 @@ import com.marketplace.user.dto.TokenResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.dto.VerifyEmailRequest;
 import com.marketplace.user.service.AuthService;
+import com.marketplace.user.service.MFAService;
 import com.marketplace.user.service.OidcService;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -31,10 +32,12 @@ public class AuthController {
 
 	private final AuthService authService;
 	private final OidcService oidcService;
+	private final MFAService mfaService;
 
-	public AuthController(AuthService authService, OidcService oidcService) {
+	public AuthController(AuthService authService, OidcService oidcService, MFAService mfaService) {
 		this.authService = authService;
 		this.oidcService = oidcService;
+		this.mfaService = mfaService;
 	}
 
 	@PostMapping("/register")
@@ -110,5 +113,27 @@ public class AuthController {
 		}
 		AuthResponse auth = oidcService.exchangeOneTimeCode(code);
 		return ResponseEntity.ok(ApiResponse.ok("OIDC login successful", auth));
+	}
+
+	@PostMapping("/mfa/verify")
+	public ResponseEntity<ApiResponse<AuthResponse>> verifyMfaLogin(@RequestBody Map<String, String> body) {
+		String mfaToken = body.get("mfaToken");
+		String otp = body.get("otp");
+		if (mfaToken == null || otp == null) {
+			return ResponseEntity.badRequest().body(ApiResponse.ok("mfaToken and otp are required", null));
+		}
+		AuthResponse auth = mfaService.verifyLoginOTP(mfaToken, otp);
+		return ResponseEntity.ok(ApiResponse.ok("Login successful", auth));
+	}
+
+	@PostMapping("/mfa/recovery")
+	public ResponseEntity<ApiResponse<AuthResponse>> verifyRecoveryCode(@RequestBody Map<String, String> body) {
+		String mfaToken = body.get("mfaToken");
+		String recoveryCode = body.get("recoveryCode");
+		if (mfaToken == null || recoveryCode == null) {
+			return ResponseEntity.badRequest().body(ApiResponse.ok("mfaToken and recoveryCode are required", null));
+		}
+		AuthResponse auth = mfaService.verifyRecoveryCode(mfaToken, recoveryCode);
+		return ResponseEntity.ok(ApiResponse.ok("Login successful", auth));
 	}
 }

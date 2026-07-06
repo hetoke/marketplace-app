@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant FE as Next.js (:3000)
+    participant BE as Spring Boot (:8080)
+    participant Email as Email (logged)
+
+    User->>FE: Click "Tắt MFA" on Profile page
+    FE->>BE: POST /api/v1/users/mfa/disable/send-otp
+    BE->>BE: Generate 6-digit OTP, hash with BCrypt
+    BE->>BE: Save MfaChallenge (userId, type=DISABLE, expiresAt)
+    BE->>Email: Send OTP to user's email
+    BE-->>FE: { message: "OTP sent" }
+    FE->>FE: Show OTP input form
+    FE-->>User: "Mã OTP đã gửi đến email"
+
+    User->>FE: Enter 6-digit OTP
+    FE->>BE: DELETE /api/v1/users/mfa { code }
+    BE->>BE: Find MfaChallenge (type=DISABLE)
+    BE->>BE: Validate OTP (not expired, attempts < 5)
+    BE->>BE: user.mfaEnabled = false
+    BE->>BE: Delete all MfaChallenges for user
+    BE->>BE: Delete all RecoveryCodes for user
+    BE-->>FE: { message: "MFA disabled" }
+    FE->>FE: Update local user state
+    FE-->>User: MFA disabled ✓

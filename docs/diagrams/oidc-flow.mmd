@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor User as User (Browser)
+    participant FE as Next.js (:3000)
+    participant BE as Spring Boot (:8080)
+    participant Google as Google OAuth
+
+    User->>FE: Click "Continue with Google"
+    FE->>BE: GET /api/v1/auth/oidc/login?provider=google
+    BE->>BE: Generate state, store in stateStore
+    BE-->>FE: 302 Redirect → Google OAuth URL
+
+    FE->>Google: Redirect to consent screen
+    User->>Google: Approve
+    Google-->>BE: 302 → /oidc/callback?code=...&state=...
+
+    BE->>BE: Validate state (CSRF)
+    BE->>Google: POST /oauth2/token (exchange code)
+    Google-->>BE: { id_token, access_token }
+    BE->>BE: Decode ID token → email, name, sub
+
+    alt Identity already linked
+        BE->>BE: Find user_identities by provider+sub
+    else Same email exists
+        BE->>BE: Link identity to existing user
+    else New user
+        BE->>BE: Create user (verified=true, BUYER)
+    end
+
+    BE->>BE: Generate JWT pair, store in oneTimeCodes (60s)
+    BE-->>FE: 302 → /auth/callback?code=<one-time-code>
+
+    FE->>BE: POST /api/auth/oidc/token { code }
+    BE->>BE: Validate code, remove from map
+    BE-->>FE: { accessToken, refreshToken, user }
+
+    FE->>FE: Set httpOnly cookies, setUser()
+    FE-->>User: Redirect to / (logged in)

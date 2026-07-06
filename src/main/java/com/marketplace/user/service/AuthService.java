@@ -42,17 +42,20 @@ public class AuthService {
 	private final VerificationTokenRepository verificationTokenRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
+	private final MFAService mfaService;
 
 	public AuthService(UserRepository userRepository,
 					   RefreshTokenRepository refreshTokenRepository,
 					   VerificationTokenRepository verificationTokenRepository,
 					   PasswordEncoder passwordEncoder,
-					   JwtTokenProvider jwtTokenProvider) {
+					   JwtTokenProvider jwtTokenProvider,
+					   MFAService mfaService) {
 		this.userRepository = userRepository;
 		this.refreshTokenRepository = refreshTokenRepository;
 		this.verificationTokenRepository = verificationTokenRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtTokenProvider = jwtTokenProvider;
+		this.mfaService = mfaService;
 	}
 
 	@Transactional
@@ -95,6 +98,12 @@ public class AuthService {
 
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
+
+		if (user.isMfaEnabled()) {
+			String mfaToken = jwtTokenProvider.generateMfaToken(user.getId().toString());
+			mfaService.sendLoginOTP(user);
+			return new AuthResponse(null, null, null, true, mfaToken);
+		}
 
 		return generateTokenPair(user);
 	}
