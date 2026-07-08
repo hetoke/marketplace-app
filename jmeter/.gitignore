@@ -1,7 +1,0 @@
-results/report/
-results/report-post-redis/
-results/*.jtl
-results/*.log
-results/statistics.json
-*.zip
-*.zip
