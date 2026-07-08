@@ -32,6 +32,10 @@ public class User {
 	@Column(name = "is_verified", nullable = false)
 	private boolean verified = false;
 
+	@Enumerated(EnumType.STRING)
+	@Column(nullable = false, length = 20)
+	private UserStatus status = UserStatus.ACTIVE;
+
 	@Column(name = "mfa_enabled", nullable = false)
 	private boolean mfaEnabled = false;
 
@@ -71,6 +75,10 @@ public class User {
 		LOCAL, OIDC, HYBRID
 	}
 
+	public enum UserStatus {
+		ACTIVE, SUSPENDED, DEACTIVATED
+	}
+
 	public UUID getId() { return id; }
 	public void setId(UUID id) { this.id = id; }
 
@@ -85,6 +93,9 @@ public class User {
 
 	public boolean isVerified() { return verified; }
 	public void setVerified(boolean verified) { this.verified = verified; }
+
+	public UserStatus getStatus() { return status; }
+	public void setStatus(UserStatus status) { this.status = status; }
 
 	public boolean isMfaEnabled() { return mfaEnabled; }
 	public void setMfaEnabled(boolean mfaEnabled) { this.mfaEnabled = mfaEnabled; }

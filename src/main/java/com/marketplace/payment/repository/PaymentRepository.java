@@ -2,6 +2,8 @@ package com.marketplace.payment.repository;
 
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.model.Payment.PaymentStatus;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,4 +36,12 @@ public interface PaymentRepository extends JpaRepository<Payment, UUID> {
            "WHERE pr.seller_id = :sellerId AND p.status = 'COMPLETED' " +
            "ORDER BY p.created_at DESC", nativeQuery = true)
     List<Payment> findCompletedBySellerId(@Param("sellerId") UUID sellerId);
+
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p WHERE p.status = :status AND p.createdAt BETWEEN :start AND :end")
+    BigDecimal sumAmountByStatusAndCreatedAtBetween(
+            @Param("status") PaymentStatus status,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    long countByStatus(PaymentStatus status);
 }
