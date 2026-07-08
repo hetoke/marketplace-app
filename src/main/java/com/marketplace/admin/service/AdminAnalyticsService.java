@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,6 +49,7 @@ public class AdminAnalyticsService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "analyticsRevenue", key = "'revenue:' + #startDate + ':' + #endDate")
     public RevenueAnalyticsResponse getRevenueAnalytics(Instant startDate, Instant endDate) {
         BigDecimal totalRevenue = paymentRepository.sumAmountByStatusAndCreatedAtBetween(
                 PaymentStatus.COMPLETED, startDate, endDate);
@@ -71,6 +73,7 @@ public class AdminAnalyticsService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "analyticsOrders", key = "'orders:' + #startDate + ':' + #endDate")
     public OrderAnalyticsResponse getOrderAnalytics(Instant startDate, Instant endDate) {
         long totalOrders = orderRepository.countByCreatedAtBetween(startDate, endDate);
 
@@ -98,6 +101,7 @@ public class AdminAnalyticsService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "analyticsUsers", key = "'users:' + #startDate + ':' + #endDate")
     public UserAnalyticsResponse getUserAnalytics(Instant startDate, Instant endDate) {
         long totalUsers = userRepository.count();
         long verifiedUsers = userRepository.countByVerifiedTrue();
@@ -120,6 +124,7 @@ public class AdminAnalyticsService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "analyticsProducts", key = "'products'")
     public ProductAnalyticsResponse getProductAnalytics() {
         long totalProducts = productRepository.count();
         long activeProducts = productRepository.countByActiveTrue();

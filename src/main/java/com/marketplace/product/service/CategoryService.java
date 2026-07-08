@@ -9,6 +9,8 @@ import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ public class CategoryService {
     }
 
     @Transactional
+    @CacheEvict(value = {"categoriesById", "categoriesAll"}, allEntries = true)
     public CategoryResponse createCategory(CategoryRequest request) {
         if (categoryRepository.existsBySlug(request.slug())) {
             throw new BusinessException("Category slug already exists");
@@ -40,6 +43,7 @@ public class CategoryService {
     }
 
     @Transactional
+    @CacheEvict(value = {"categoriesById", "categoriesAll"}, allEntries = true)
     public CategoryResponse updateCategory(UUID categoryId, CategoryRequest request) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
@@ -65,6 +69,7 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "categoriesById", key = "#categoryId")
     public CategoryResponse getCategoryById(UUID categoryId) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));
@@ -72,6 +77,7 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "categoriesAll", key = "'all'")
     public List<CategoryResponse> getAllCategories() {
         return categoryRepository.findAll().stream()
                 .map(CategoryResponse::from)
@@ -79,6 +85,7 @@ public class CategoryService {
     }
 
     @Transactional
+    @CacheEvict(value = {"categoriesById", "categoriesAll"}, allEntries = true)
     public void deleteCategory(UUID categoryId) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new ResourceNotFoundException("Category", "id", categoryId));

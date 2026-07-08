@@ -1,8 +1,5 @@
 package com.marketplace.product.service;
 
-import com.marketplace.upload.model.EntityType;
-import com.marketplace.upload.repository.ImageRepository;
-import com.marketplace.upload.service.ImageService;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
@@ -15,8 +12,13 @@ import com.marketplace.product.repository.ProductRepository;
 import com.marketplace.shared.dto.PageResponse;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
+import com.marketplace.upload.model.EntityType;
+import com.marketplace.upload.repository.ImageRepository;
+import com.marketplace.upload.service.ImageService;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -32,11 +34,13 @@ public class ProductService {
     private final ImageRepository imageRepository;
     private final ImageService imageService;
 
-    public ProductService(ProductRepository productRepository,
-                          CategoryRepository categoryRepository,
-                          ProductImageRepository productImageRepository,
-                          ImageRepository imageRepository,
-                          ImageService imageService) {
+    public ProductService(
+        ProductRepository productRepository,
+        CategoryRepository categoryRepository,
+        ProductImageRepository productImageRepository,
+        ImageRepository imageRepository,
+        ImageService imageService
+    ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productImageRepository = productImageRepository;
@@ -45,9 +49,20 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductResponse createProduct(String sellerId, ProductRequest request) {
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", request.categoryId()));
+    @CacheEvict(value = "products", allEntries = true)
+    public ProductResponse createProduct(
+        String sellerId,
+        ProductRequest request
+    ) {
+        Category category = categoryRepository
+            .findById(request.categoryId())
+            .orElseThrow(() ->
+                new ResourceNotFoundException(
+                    "Category",
+                    "id",
+                    request.categoryId()
+                )
+            );
         String slug = generateSlug(request.name());
         if (productRepository.findBySlug(slug).isPresent()) {
             slug = slug + "-" + UUID.randomUUID().toString().substring(0, 8);
@@ -65,14 +80,31 @@ public class ProductService {
     }
 
     @Transactional
-    public ProductResponse updateProduct(String sellerId, UUID productId, ProductRequest request) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-		if (!product.getSellerId().toString().equals(sellerId)) {
-			throw new AccessDeniedException("You can only update your own products");
-		}
-        Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new ResourceNotFoundException("Category", "id", request.categoryId()));
+    @CacheEvict(value = "products", allEntries = true)
+    public ProductResponse updateProduct(
+        String sellerId,
+        UUID productId,
+        ProductRequest request
+    ) {
+        Product product = productRepository
+            .findById(productId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product", "id", productId)
+            );
+        if (!product.getSellerId().toString().equals(sellerId)) {
+            throw new AccessDeniedException(
+                "You can only update your own products"
+            );
+        }
+        Category category = categoryRepository
+            .findById(request.categoryId())
+            .orElseThrow(() ->
+                new ResourceNotFoundException(
+                    "Category",
+                    "id",
+                    request.categoryId()
+                )
+            );
         product.setCategory(category);
         product.setName(request.name());
         product.setDescription(request.description());
@@ -84,99 +116,170 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(value = "products", allEntries = true)
     public void deleteProduct(String sellerId, UUID productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-		if (!product.getSellerId().toString().equals(sellerId)) {
-			throw new AccessDeniedException("You can only delete your own products");
-		}
+        Product product = productRepository
+            .findById(productId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product", "id", productId)
+            );
+        if (!product.getSellerId().toString().equals(sellerId)) {
+            throw new AccessDeniedException(
+                "You can only delete your own products"
+            );
+        }
         productImageRepository.deleteByProductId(productId);
         imageService.deleteImagesByEntity(EntityType.PRODUCT, productId);
         productRepository.delete(product);
     }
 
     @Transactional
-    public void deleteProductImage(String sellerId, UUID productId, UUID imageId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
+    public void deleteProductImage(
+        String sellerId,
+        UUID productId,
+        UUID imageId
+    ) {
+        Product product = productRepository
+            .findById(productId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product", "id", productId)
+            );
         if (!product.getSellerId().toString().equals(sellerId)) {
-            throw new AccessDeniedException("You can only delete images from your own products");
+            throw new AccessDeniedException(
+                "You can only delete images from your own products"
+            );
         }
-        ProductImage productImage = productImageRepository.findById(imageId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product image", "id", imageId));
+        ProductImage productImage = productImageRepository
+            .findById(imageId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product image", "id", imageId)
+            );
         if (!productImage.getProduct().getId().equals(productId)) {
-            throw new AccessDeniedException("Image does not belong to this product");
+            throw new AccessDeniedException(
+                "Image does not belong to this product"
+            );
         }
-        imageRepository.findByFileUrlContaining(productImage.getUrl())
-                .ifPresent(image -> imageService.deleteById(image.getId()));
+        imageRepository
+            .findByFileUrlContaining(productImage.getUrl())
+            .ifPresent(image -> imageService.deleteById(image.getId()));
         productImageRepository.delete(productImage);
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "productById", key = "#productId")
     public ProductResponse getProductById(UUID productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
-        var images = productImageRepository.findByProductIdOrderBySortOrderAsc(productId);
+        Product product = productRepository
+            .findById(productId)
+            .orElseThrow(() ->
+                new ResourceNotFoundException("Product", "id", productId)
+            );
+        var images = productImageRepository.findByProductIdOrderBySortOrderAsc(
+            productId
+        );
         return ProductResponse.from(product, images);
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> searchProducts(ProductSearchRequest request) {
+    @Cacheable(
+        value = "products",
+        key = "'search:' + #request.query() + ':' + #request.categoryId() + ':' + #request.minPrice() + ':' + #request.maxPrice() + ':' + #request.page() + ':' + #request.size()"
+    )
+    public PageResponse<ProductResponse> searchProducts(
+        ProductSearchRequest request
+    ) {
         Sort sort = Sort.by(Sort.Direction.DESC, request.getSortBy());
         //System.out.println(sort);
-        PageRequest pageRequest = PageRequest.of(request.getPage(), request.getSize(), sort);
+        PageRequest pageRequest = PageRequest.of(
+            request.getPage(),
+            request.getSize(),
+            sort
+        );
         Page<Product> page = productRepository.search(
-                request.query(),
-                request.categoryId(),
-                request.minPrice(),
-                request.maxPrice(),
-                pageRequest);
-        var content = page.getContent().stream()
-                .map(ProductResponse::from)
-                .toList();
+            request.query(),
+            request.categoryId(),
+            request.minPrice(),
+            request.maxPrice(),
+            pageRequest
+        );
+        var content = page
+            .getContent()
+            .stream()
+            .map(ProductResponse::from)
+            .toList();
         return new PageResponse<>(
-                content,
-                page.getNumber(),
-                page.getSize(),
-                page.getTotalElements(),
-                page.getTotalPages());
+            content,
+            page.getNumber(),
+            page.getSize(),
+            page.getTotalElements(),
+            page.getTotalPages()
+        );
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> getProductsByCategory(UUID categoryId, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Product> pageResult = productRepository.findByCategoryIdAndActiveTrue(categoryId, pageRequest);
-        var content = pageResult.getContent().stream()
-                .map(ProductResponse::from)
-                .toList();
+    public PageResponse<ProductResponse> getProductsByCategory(
+        UUID categoryId,
+        int page,
+        int size
+    ) {
+        PageRequest pageRequest = PageRequest.of(
+            page,
+            size,
+            Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+        Page<Product> pageResult =
+            productRepository.findByCategoryIdAndActiveTrue(
+                categoryId,
+                pageRequest
+            );
+        var content = pageResult
+            .getContent()
+            .stream()
+            .map(ProductResponse::from)
+            .toList();
         return new PageResponse<>(
-                content,
-                pageResult.getNumber(),
-                pageResult.getSize(),
-                pageResult.getTotalElements(),
-                pageResult.getTotalPages());
+            content,
+            pageResult.getNumber(),
+            pageResult.getSize(),
+            pageResult.getTotalElements(),
+            pageResult.getTotalPages()
+        );
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> getSellerProducts(String sellerId, int page, int size) {
-        PageRequest pageRequest = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Product> pageResult = productRepository.findBySellerId(UUID.fromString(sellerId), pageRequest);
-        var content = pageResult.getContent().stream()
-                .map(ProductResponse::from)
-                .toList();
+    public PageResponse<ProductResponse> getSellerProducts(
+        String sellerId,
+        int page,
+        int size
+    ) {
+        PageRequest pageRequest = PageRequest.of(
+            page,
+            size,
+            Sort.by(Sort.Direction.DESC, "createdAt")
+        );
+        Page<Product> pageResult = productRepository.findBySellerId(
+            UUID.fromString(sellerId),
+            pageRequest
+        );
+        var content = pageResult
+            .getContent()
+            .stream()
+            .map(ProductResponse::from)
+            .toList();
         return new PageResponse<>(
-                content,
-                pageResult.getNumber(),
-                pageResult.getSize(),
-                pageResult.getTotalElements(),
-                pageResult.getTotalPages());
+            content,
+            pageResult.getNumber(),
+            pageResult.getSize(),
+            pageResult.getTotalElements(),
+            pageResult.getTotalPages()
+        );
     }
 
     private String generateSlug(String name) {
-        return name.toLowerCase()
-                .replaceAll("[^a-z0-9\\s-]", "")
-                .replaceAll("\\s+", "-")
-                .replaceAll("-+", "-")
-                .replaceAll("^-|-$", "");
+        return name
+            .toLowerCase()
+            .replaceAll("[^a-z0-9\\s-]", "")
+            .replaceAll("\\s+", "-")
+            .replaceAll("-+", "-")
+            .replaceAll("^-|-$", "");
     }
 }

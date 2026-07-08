@@ -11,6 +11,7 @@ import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -43,6 +44,7 @@ public class AdminProductService {
     }
 
     @Transactional
+    @CacheEvict(value = {"products", "analyticsRevenue", "analyticsOrders", "analyticsUsers", "analyticsProducts"}, allEntries = true)
     public AdminProductResponse updateProductStatus(UUID productId, boolean active, UUID adminId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));

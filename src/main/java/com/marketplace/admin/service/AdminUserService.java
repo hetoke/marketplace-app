@@ -12,6 +12,7 @@ import com.marketplace.user.model.User.UserStatus;
 import com.marketplace.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -54,6 +55,7 @@ public class AdminUserService {
     }
 
     @Transactional
+    @CacheEvict(value = {"analyticsRevenue", "analyticsOrders", "analyticsUsers", "analyticsProducts"}, allEntries = true)
     public AdminUserResponse updateUserStatus(UUID userId, UserStatus newStatus, UUID adminId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
