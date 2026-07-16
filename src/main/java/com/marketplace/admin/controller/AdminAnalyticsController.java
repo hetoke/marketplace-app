@@ -11,6 +11,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +28,7 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/revenue")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<RevenueAnalyticsResponse>> getRevenueAnalytics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -42,6 +44,7 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/orders")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<OrderAnalyticsResponse>> getOrderAnalytics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -57,6 +60,7 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<UserAnalyticsResponse>> getUserAnalytics(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
@@ -72,6 +76,7 @@ public class AdminAnalyticsController {
     }
 
     @GetMapping("/products")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProductAnalyticsResponse>> getProductAnalytics() {
         ProductAnalyticsResponse response = adminAnalyticsService.getProductAnalytics();
         return ResponseEntity.ok(ApiResponse.ok(response));

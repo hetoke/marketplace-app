@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,7 @@ public class PaymentController {
     }
 
     @PostMapping("/api/v1/orders/{orderId}/pay")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfOrder(#orderId)")
     public ResponseEntity<ApiResponse<SePayCheckoutResponse>> initiatePayment(
             @PathVariable UUID orderId,
             @Valid @RequestBody InitiatePaymentRequest request) {
@@ -69,6 +71,7 @@ public class PaymentController {
     }
 
     @GetMapping("/api/v1/payments/{paymentId}")
+    @PreAuthorize("isAuthenticated() and @permissionService.isOwnerOfPayment(#paymentId)")
     public ResponseEntity<ApiResponse<PaymentResponse>> getPayment(@PathVariable UUID paymentId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         PaymentResponse response = paymentService.getPayment(userId, paymentId);
@@ -76,6 +79,7 @@ public class PaymentController {
     }
 
     @PostMapping("/api/v1/payments/{paymentId}/refund")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfPayment(#paymentId)")
     public ResponseEntity<ApiResponse<PaymentResponse>> requestRefund(
             @PathVariable UUID paymentId,
             @Valid @RequestBody RefundPaymentRequest request) {
@@ -85,6 +89,7 @@ public class PaymentController {
     }
 
     @PostMapping("/api/v1/payments/{paymentId}/refund/approve")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PaymentResponse>> approveRefund(
             @PathVariable UUID paymentId) {
         PaymentResponse response = paymentService.approveRefund(paymentId);
@@ -92,6 +97,7 @@ public class PaymentController {
     }
 
     @GetMapping("/api/v1/payments/history")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<List<PaymentHistoryResponse>>> getPaymentHistory() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<PaymentHistoryResponse> history = paymentService.getPaymentHistory(userId);
@@ -99,6 +105,7 @@ public class PaymentController {
     }
 
     @GetMapping("/api/v1/payments/seller/history")
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<ApiResponse<List<PaymentHistoryResponse>>> getSellerPaymentHistory() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<PaymentHistoryResponse> history = paymentService.getSellerPaymentHistory(userId);

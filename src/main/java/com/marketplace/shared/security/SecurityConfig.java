@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -21,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -46,24 +48,8 @@ public class SecurityConfig {
 						.requestMatchers("/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
 						.requestMatchers("/api/v1/webhooks/**").permitAll()
 						.requestMatchers(HttpMethod.POST, "/api/v1/payments/ipn").permitAll()
-						.requestMatchers(HttpMethod.GET, "/api/v1/users/avatar/upload-url").authenticated()
-						.requestMatchers(HttpMethod.GET, "/api/v1/products/{productId}/images/upload-url").hasRole("SELLER")
 						.requestMatchers(HttpMethod.GET, "/api/v1/products/**", "/api/v1/categories/**").permitAll()
 						.requestMatchers(HttpMethod.GET, "/api/v1/sellers/**").permitAll()
-						.requestMatchers(HttpMethod.POST, "/api/v1/products/**").hasRole("SELLER")
-						.requestMatchers(HttpMethod.PUT, "/api/v1/products/**").hasRole("SELLER")
-						.requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasRole("SELLER")
-						.requestMatchers(HttpMethod.POST, "/api/v1/categories/**").hasRole("ADMIN")
-						.requestMatchers(HttpMethod.PUT, "/api/v1/categories/**").hasRole("ADMIN")
-						.requestMatchers(HttpMethod.DELETE, "/api/v1/categories/**").hasRole("ADMIN")
-						.requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-						.requestMatchers(HttpMethod.GET, "/api/v1/payments/seller/history").hasRole("SELLER")
-						.requestMatchers("/api/v1/payments/**").authenticated()
-						.requestMatchers(HttpMethod.POST, "/api/v1/orders/**").authenticated()
-						.requestMatchers(HttpMethod.GET, "/api/v1/orders/**").authenticated()
-						.requestMatchers(HttpMethod.PUT, "/api/v1/orders/**").authenticated()
-						.requestMatchers("/api/v1/cart/**").hasRole("BUYER")
-						.requestMatchers("/api/v1/buyers/wishlist/**").hasRole("BUYER")
 						.anyRequest().authenticated()
 				)
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

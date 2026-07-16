@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,6 +33,7 @@ public class OrderController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<OrderResponse>> placeOrder(
             @Valid @RequestBody PlaceOrderRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -41,6 +43,7 @@ public class OrderController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<List<OrderResponse>>> getOrders() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<OrderResponse> orders = orderService.getOrders(userId);
@@ -48,6 +51,7 @@ public class OrderController {
     }
 
     @GetMapping("/{orderId}")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfOrder(#orderId)")
     public ResponseEntity<ApiResponse<OrderResponse>> getOrder(@PathVariable UUID orderId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         OrderResponse order = orderService.getOrder(userId, orderId);
@@ -55,6 +59,7 @@ public class OrderController {
     }
 
     @PutMapping("/{orderId}/status")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfOrder(#orderId)")
     public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(
             @PathVariable UUID orderId,
             @RequestBody java.util.Map<String, String> body) {
@@ -65,6 +70,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/cancel")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfOrder(#orderId)")
     public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
             @PathVariable UUID orderId,
             @Valid @RequestBody CancelOrderRequest request) {
@@ -74,6 +80,7 @@ public class OrderController {
     }
 
     @PostMapping("/{orderId}/return")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfOrder(#orderId)")
     public ResponseEntity<ApiResponse<OrderResponse>> requestReturn(
             @PathVariable UUID orderId,
             @Valid @RequestBody ReturnRequest request) {

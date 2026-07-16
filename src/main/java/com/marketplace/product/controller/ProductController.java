@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('SELLER')")
     public ResponseEntity<ApiResponse<ProductResponse>> createProduct(
         @Valid @RequestBody ProductRequest request
     ) {
@@ -66,6 +68,7 @@ public class ProductController {
     }
 
     @PutMapping("/{productId}")
+    @PreAuthorize("hasRole('SELLER') and @permissionService.isOwnerOfProduct(#productId)")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
         @PathVariable UUID productId,
         @Valid @RequestBody ProductRequest request
@@ -82,6 +85,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{productId}")
+    @PreAuthorize("hasRole('SELLER') and @permissionService.isOwnerOfProduct(#productId)")
     public ResponseEntity<ApiResponse<Void>> deleteProduct(
         @PathVariable UUID productId
     ) {
@@ -93,6 +97,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{productId}/images/{imageId}")
+    @PreAuthorize("hasRole('SELLER') and @permissionService.isOwnerOfProduct(#productId)")
     public ResponseEntity<ApiResponse<Void>> deleteProductImage(
         @PathVariable UUID productId,
         @PathVariable UUID imageId

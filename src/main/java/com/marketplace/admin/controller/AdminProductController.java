@@ -7,6 +7,7 @@ import com.marketplace.shared.dto.ApiResponse;
 import com.marketplace.shared.dto.PageResponse;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,6 +28,7 @@ public class AdminProductController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<PageResponse<AdminProductResponse>>> getProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -38,6 +40,7 @@ public class AdminProductController {
     }
 
     @PutMapping("/{productId}/status")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<AdminProductResponse>> updateProductStatus(
             @PathVariable UUID productId,
             @RequestBody ProductStatusUpdateRequest request,

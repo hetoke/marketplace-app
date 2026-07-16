@@ -12,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +34,7 @@ public class ReviewController {
     }
 
     @PostMapping("/reviews")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<ReviewResponse>> createReview(
             @Valid @RequestBody CreateReviewRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -42,6 +44,7 @@ public class ReviewController {
     }
 
     @GetMapping("/reviews")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> getUserReviews() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<ReviewResponse> reviews = reviewService.getUserReviews(userId);
@@ -55,6 +58,7 @@ public class ReviewController {
     }
 
     @PutMapping("/reviews/{reviewId}")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfReview(#reviewId)")
     public ResponseEntity<ApiResponse<ReviewResponse>> updateReview(
             @PathVariable UUID reviewId,
             @Valid @RequestBody UpdateReviewRequest request) {
@@ -64,6 +68,7 @@ public class ReviewController {
     }
 
     @DeleteMapping("/reviews/{reviewId}")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfReview(#reviewId)")
     public ResponseEntity<ApiResponse<Void>> deleteReview(@PathVariable UUID reviewId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         reviewService.deleteReview(userId, reviewId);

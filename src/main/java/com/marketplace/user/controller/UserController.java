@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,6 +38,7 @@ public class UserController {
 	}
 
 	@GetMapping("/profile")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<UserResponse>> getProfile() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		UserResponse user = userService.getProfile(userId);
@@ -44,6 +46,7 @@ public class UserController {
 	}
 
 	@PutMapping("/profile")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<UserResponse>> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		UserResponse user = userService.updateProfile(userId, request);
@@ -51,6 +54,7 @@ public class UserController {
 	}
 
 	@PutMapping("/profile/password")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		userService.changePassword(userId, request);
@@ -58,6 +62,7 @@ public class UserController {
 	}
 
 	@PostMapping("/mfa/setup")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<Map<String, String>>> setupMFA() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
@@ -70,6 +75,7 @@ public class UserController {
 	}
 
 	@PostMapping("/mfa/verify")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<AuthResponse>> verifyMFASetup(@RequestBody Map<String, String> body) {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		String otp = body.get("otp");
@@ -80,6 +86,7 @@ public class UserController {
 	}
 
 	@DeleteMapping("/mfa")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<Void>> disableMFA(@RequestBody Map<String, String> body) {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		String otp = body.get("otp");
@@ -90,6 +97,7 @@ public class UserController {
 	}
 
 	@PostMapping("/mfa/disable/send-otp")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<Map<String, String>>> sendDisableOTP() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
@@ -99,6 +107,7 @@ public class UserController {
 	}
 
 	@GetMapping("/mfa/status")
+	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<Map<String, Object>>> getMFAStatus() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))

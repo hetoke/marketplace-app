@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +31,7 @@ public class CartController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<CartResponse>> getCart() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         CartResponse cart = cartService.getCart(userId);
@@ -37,6 +39,7 @@ public class CartController {
     }
 
     @PostMapping("/items/{productId}")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<CartResponse>> addItem(
             @PathVariable UUID productId,
             @Valid @RequestBody AddToCartRequest request) {
@@ -47,6 +50,7 @@ public class CartController {
     }
 
     @PutMapping("/items/{itemId}")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfCartItem(#itemId)")
     public ResponseEntity<ApiResponse<CartResponse>> updateQuantity(
             @PathVariable UUID itemId,
             @Valid @RequestBody UpdateCartItemRequest request) {
@@ -56,6 +60,7 @@ public class CartController {
     }
 
     @DeleteMapping("/items/{itemId}")
+    @PreAuthorize("hasRole('BUYER') and @permissionService.isOwnerOfCartItem(#itemId)")
     public ResponseEntity<ApiResponse<CartResponse>> removeItem(@PathVariable UUID itemId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         CartResponse cart = cartService.removeItem(userId, itemId);
@@ -63,6 +68,7 @@ public class CartController {
     }
 
     @DeleteMapping
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<Void>> clearCart() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         cartService.clearCart(userId);

@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,7 @@ public class WishlistController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<List<WishlistItemResponse>>> getWishlist() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<WishlistItemResponse> items = wishlistService.getWishlist(userId);
@@ -33,6 +35,7 @@ public class WishlistController {
     }
 
     @PostMapping("/{productId}")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<WishlistItemResponse>> addToWishlist(
             @PathVariable UUID productId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -42,6 +45,7 @@ public class WishlistController {
     }
 
     @DeleteMapping("/{productId}")
+    @PreAuthorize("hasRole('BUYER')")
     public ResponseEntity<ApiResponse<Void>> removeFromWishlist(@PathVariable UUID productId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         wishlistService.removeFromWishlist(userId, productId);

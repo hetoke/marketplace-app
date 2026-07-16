@@ -11,6 +11,7 @@ import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +32,7 @@ public class NotificationController {
     }
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Page<NotificationResponse>>> getNotifications(Pageable pageable) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         Page<NotificationResponse> notifications = notificationService.getUserNotifications(userId, pageable);
@@ -38,6 +40,7 @@ public class NotificationController {
     }
 
     @GetMapping("/all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<NotificationResponse>>> getAllNotifications() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         List<NotificationResponse> notifications = notificationService.getAllUserNotifications(userId);
@@ -45,6 +48,7 @@ public class NotificationController {
     }
 
     @GetMapping("/unread-count")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getUnreadCount() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         Long count = notificationService.getUnreadCount(userId);
@@ -52,6 +56,7 @@ public class NotificationController {
     }
 
     @PutMapping("/{notificationId}/read")
+    @PreAuthorize("isAuthenticated() and @permissionService.isOwnerOfNotification(#notificationId)")
     public ResponseEntity<ApiResponse<Void>> markAsRead(@PathVariable UUID notificationId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         notificationService.markAsRead(userId, notificationId);
@@ -59,6 +64,7 @@ public class NotificationController {
     }
 
     @PutMapping("/read-all")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> markAllAsRead() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         notificationService.markAllAsRead(userId);
@@ -66,6 +72,7 @@ public class NotificationController {
     }
 
     @DeleteMapping("/{notificationId}")
+    @PreAuthorize("isAuthenticated() and @permissionService.isOwnerOfNotification(#notificationId)")
     public ResponseEntity<ApiResponse<Void>> deleteNotification(@PathVariable UUID notificationId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         notificationService.deleteNotification(userId, notificationId);
@@ -73,6 +80,7 @@ public class NotificationController {
     }
 
     @DeleteMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> clearAllNotifications() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         notificationService.clearAllNotifications(userId);
@@ -80,6 +88,7 @@ public class NotificationController {
     }
 
     @PutMapping("/settings")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Void>> updateSettings(
             @Valid @RequestBody NotificationSettingsRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();

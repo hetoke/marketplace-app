@@ -6,6 +6,7 @@ import com.marketplace.upload.service.UploadService;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,6 +22,7 @@ public class UploadController {
     }
 
     @GetMapping("/api/v1/users/avatar/upload-url")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<UploadResponse>> requestUserAvatar() {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
         UploadResponse response = uploadService.requestUserUpload(userId);
@@ -29,6 +31,7 @@ public class UploadController {
     }
 
     @GetMapping("/api/v1/products/{productId}/images/upload-url")
+    @PreAuthorize("hasRole('SELLER') and @permissionService.isOwnerOfProduct(#productId)")
     public ResponseEntity<ApiResponse<UploadResponse>> requestProductImages(
             @PathVariable UUID productId) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
