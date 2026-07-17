@@ -59,6 +59,28 @@ springdoc:
     operations-sorter: alpha
 
 app:
+  rate-limit:
+    enabled: true
+    auth:
+      capacity: 10
+      refill-tokens: 10
+      refill-duration-minutes: 1
+    orders:
+      capacity: 20
+      refill-tokens: 20
+      refill-duration-minutes: 1
+    payments:
+      capacity: 10
+      refill-tokens: 10
+      refill-duration-minutes: 1
+    reviews:
+      capacity: 10
+      refill-tokens: 10
+      refill-duration-minutes: 1
+    uploads:
+      capacity: 5
+      refill-tokens: 5
+      refill-duration-minutes: 1
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:noreply@marketplace.com}

@@ -1,5 +1,6 @@
 package com.marketplace.shared.security;
 
+import com.marketplace.shared.filter.RateLimitFilter;
 import java.util.List;
 
 import org.springframework.context.annotation.Bean;
@@ -28,13 +29,16 @@ public class SecurityConfig {
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 	private final CustomAccessDeniedHandler customAccessDeniedHandler;
+	private final RateLimitFilter rateLimitFilter;
 
 	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
 			CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
-			CustomAccessDeniedHandler customAccessDeniedHandler) {
+			CustomAccessDeniedHandler customAccessDeniedHandler,
+			RateLimitFilter rateLimitFilter) {
 		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
 		this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
 		this.customAccessDeniedHandler = customAccessDeniedHandler;
+		this.rateLimitFilter = rateLimitFilter;
 	}
 
 	@Bean
@@ -52,6 +56,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/v1/sellers/**").permitAll()
 						.anyRequest().authenticated()
 				)
+				.addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(customAuthenticationEntryPoint)
