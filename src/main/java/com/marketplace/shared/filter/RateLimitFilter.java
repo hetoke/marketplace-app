@@ -113,7 +113,7 @@ public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 		String uri = request.getRequestURI();
 		String method = request.getMethod();
 
-		if (uri.startsWith("/api/v1/auth/")) {
+		if (uri.startsWith("/api/v1/auth/") && !uri.equals("/api/v1/auth/refresh")) {
 			return "auth";
 		}
 		if ("POST".equals(method) || "PUT".equals(method) || "DELETE".equals(method)) {
