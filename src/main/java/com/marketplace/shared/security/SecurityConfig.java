@@ -56,7 +56,7 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/v1/sellers/**").permitAll()
 						.anyRequest().authenticated()
 				)
-				.addFilterBefore(rateLimitFilter, JwtAuthenticationFilter.class)
+				.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
 				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(customAuthenticationEntryPoint)

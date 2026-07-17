@@ -23,12 +23,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-public class RateLimitFilter extends OncePerRequestFilter {
+public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 
+	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 20;
 	private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
 	private final ProxyManager<String> proxyManager;
@@ -46,6 +48,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
 		this.objectMapper = objectMapper;
 		this.defaultConfigSupplier = defaultConfigSupplier;
 		initConfigByGroup();
+	}
+
+	@Override
+	public int getOrder() {
+		return ORDER;
 	}
 
 	private void initConfigByGroup() {

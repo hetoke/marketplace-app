@@ -12,12 +12,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
+
+	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 10;
 
 	private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 	private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -29,6 +32,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserDetailsService userDetailsService) {
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.userDetailsService = userDetailsService;
+	}
+
+	@Override
+	public int getOrder() {
+		return ORDER;
 	}
 
 	@Override
