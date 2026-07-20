@@ -2,6 +2,7 @@ package com.marketplace.product.dto;
 
 import com.marketplace.product.model.Product;
 import com.marketplace.product.model.ProductImage;
+import com.marketplace.product.model.DiscountType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
