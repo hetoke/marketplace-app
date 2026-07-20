@@ -22,7 +22,9 @@ public record OrderResponse(
         Instant returnRequestedAt,
         List<OrderItemResponse> items,
         Instant createdAt,
-        String paymentId
+        String paymentId,
+        BigDecimal discountAmount,
+        BigDecimal originalAmount
 ) {
     public static OrderResponse from(Order order, List<OrderItemResponse> items) {
         return from(order, items, null);
@@ -45,7 +47,9 @@ public record OrderResponse(
                 order.getReturnRequestedAt(),
                 items,
                 order.getCreatedAt(),
-                paymentId
+                paymentId,
+                order.getDiscountAmount(),
+                order.getOriginalAmount()
         );
     }
 }

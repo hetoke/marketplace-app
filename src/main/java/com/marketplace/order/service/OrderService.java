@@ -101,6 +101,8 @@ public class OrderService {
         order = orderRepository.save(order);
 
         BigDecimal totalAmount = BigDecimal.ZERO;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        BigDecimal originalAmount = BigDecimal.ZERO;
         for (CartItem cartItem : cartItems) {
             Product product = productRepository
                 .findById(cartItem.getProductId())
@@ -137,11 +139,19 @@ public class OrderService {
                 cartItem.getUnitPrice(),
                 cartItem.getQuantity()
             );
+            BigDecimal lineDiscount = cartItem.getDiscountAmount() != null
+                ? cartItem.getDiscountAmount()
+                : BigDecimal.ZERO;
+            orderItem.setDiscountAmount(lineDiscount);
             totalAmount = totalAmount.add(orderItem.getTotalPrice());
+            discountAmount = discountAmount.add(lineDiscount.multiply(BigDecimal.valueOf(cartItem.getQuantity())));
+            originalAmount = originalAmount.add(product.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())));
             orderItemRepository.save(orderItem);
         }
 
         order.setTotalAmount(totalAmount);
+        order.setDiscountAmount(discountAmount);
+        order.setOriginalAmount(originalAmount);
         order = orderRepository.save(order);
 
         cartItemRepository.deleteByCartId(cart.getId());

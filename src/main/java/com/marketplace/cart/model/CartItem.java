@@ -36,6 +36,9 @@ public class CartItem {
     @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal unitPrice;
 
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount;
+
     @Column(name = "added_at", nullable = false)
     private Instant addedAt = Instant.now();
 
@@ -58,6 +61,8 @@ public class CartItem {
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
     public BigDecimal getUnitPrice() { return unitPrice; }
     public void setUnitPrice(BigDecimal unitPrice) { this.unitPrice = unitPrice; }
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) { this.discountAmount = discountAmount; }
     public Instant getAddedAt() { return addedAt; }
     public void setAddedAt(Instant addedAt) { this.addedAt = addedAt; }
 

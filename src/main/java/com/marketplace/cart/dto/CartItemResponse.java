@@ -11,7 +11,8 @@ public record CartItemResponse(
         Integer quantity,
         BigDecimal unitPrice,
         BigDecimal totalPrice,
-        Integer stock
+        Integer stock,
+        BigDecimal discountAmount
 ) {
     public static CartItemResponse from(CartItem item, String productName, int stock) {
         return new CartItemResponse(
@@ -21,7 +22,8 @@ public record CartItemResponse(
                 item.getQuantity(),
                 item.getUnitPrice(),
                 item.getTotalPrice(),
-                stock
+                stock,
+                item.getDiscountAmount()
         );
     }
 }

@@ -10,7 +10,8 @@ public record OrderItemResponse(
         String productImageUrl,
         BigDecimal unitPrice,
         int quantity,
-        BigDecimal totalPrice
+        BigDecimal totalPrice,
+        BigDecimal discountAmount
 ) {
     public static OrderItemResponse from(OrderItem item) {
         return new OrderItemResponse(
@@ -20,7 +21,8 @@ public record OrderItemResponse(
                 item.getProductImageUrl(),
                 item.getUnitPrice(),
                 item.getQuantity(),
-                item.getTotalPrice()
+                item.getTotalPrice(),
+                item.getDiscountAmount()
         );
     }
 }

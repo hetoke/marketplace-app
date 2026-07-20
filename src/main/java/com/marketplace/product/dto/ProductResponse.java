@@ -20,7 +20,10 @@ public record ProductResponse(
         Integer reviewCount,
         boolean isActive,
         List<ProductImageResponse> images,
-        Instant createdAt
+        Instant createdAt,
+        BigDecimal originalPrice,
+        BigDecimal discountPrice,
+        boolean discountActive
 ) {
     public static ProductResponse from(Product product, List<ProductImage> images) {
         return new ProductResponse(
@@ -36,7 +39,31 @@ public record ProductResponse(
                 product.getReviewCount(),
                 product.isActive(),
                 images.stream().map(ProductImageResponse::from).toList(),
-                product.getCreatedAt()
+                product.getCreatedAt(),
+                product.getPrice(),
+                product.getPrice(),
+                false
+        );
+    }
+
+    public static ProductResponse from(Product product, List<ProductImage> images, BigDecimal effectivePrice, boolean discountActive) {
+        return new ProductResponse(
+                product.getId().toString(),
+                product.getSellerId().toString(),
+                CategoryResponse.from(product.getCategory()),
+                product.getName(),
+                product.getSlug(),
+                product.getDescription(),
+                product.getPrice(),
+                product.getStock(),
+                product.getAverageRating(),
+                product.getReviewCount(),
+                product.isActive(),
+                images.stream().map(ProductImageResponse::from).toList(),
+                product.getCreatedAt(),
+                product.getPrice(),
+                effectivePrice,
+                discountActive
         );
     }
 

@@ -8,6 +8,7 @@ import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.service.DiscountService;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
@@ -32,16 +33,19 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final DiscountService discountService;
 
     @PersistenceContext
     private EntityManager entityManager;
 
     public CartService(CartRepository cartRepository,
                        CartItemRepository cartItemRepository,
-                       ProductRepository productRepository) {
+                       ProductRepository productRepository,
+                       DiscountService discountService) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.discountService = discountService;
     }
 
     @Transactional(readOnly = true)
@@ -93,14 +97,16 @@ public class CartService {
                 throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
             }
             existingItem.setQuantity(newQuantity);
-            existingItem.setUnitPrice(product.getPrice());
+            existingItem.setUnitPrice(discountService.computeEffectivePrice(product));
+            existingItem.setDiscountAmount(discountService.computeDiscountAmount(product));
             cartItemRepository.save(existingItem);
         } else {
             int updated = productRepository.decrementStock(productId, quantity);
             if (updated == 0) {
                 throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
             }
-            CartItem newItem = new CartItem(cart, productId, quantity, product.getPrice());
+            CartItem newItem = new CartItem(cart, productId, quantity, discountService.computeEffectivePrice(product));
+            newItem.setDiscountAmount(discountService.computeDiscountAmount(product));
             cartItemRepository.save(newItem);
         }
 
@@ -152,7 +158,8 @@ public class CartService {
         }
 
         item.setQuantity(quantity);
-        item.setUnitPrice(product.getPrice());
+        item.setUnitPrice(discountService.computeEffectivePrice(product));
+        item.setDiscountAmount(discountService.computeDiscountAmount(product));
         cartItemRepository.save(item);
 
         cart.setUpdatedAt(Instant.now());

@@ -43,6 +43,18 @@ public class Product {
     @Column(nullable = false)
     private Integer stock = 0;
 
+    @Column(name = "discount_type", length = 20)
+    private DiscountType discountType;
+
+    @Column(name = "discount_value", precision = 10, scale = 2)
+    private BigDecimal discountValue;
+
+    @Column(name = "discount_start")
+    private Instant discountStart;
+
+    @Column(name = "discount_end")
+    private Instant discountEnd;
+
     @Column(name = "average_rating")
     private Double averageRating = 0.0;
 
@@ -126,6 +138,38 @@ public class Product {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+    }
+
+    public DiscountType getDiscountType() {
+        return discountType;
+    }
+
+    public void setDiscountType(DiscountType discountType) {
+        this.discountType = discountType;
+    }
+
+    public BigDecimal getDiscountValue() {
+        return discountValue;
+    }
+
+    public void setDiscountValue(BigDecimal discountValue) {
+        this.discountValue = discountValue;
+    }
+
+    public Instant getDiscountStart() {
+        return discountStart;
+    }
+
+    public void setDiscountStart(Instant discountStart) {
+        this.discountStart = discountStart;
+    }
+
+    public Instant getDiscountEnd() {
+        return discountEnd;
+    }
+
+    public void setDiscountEnd(Instant discountEnd) {
+        this.discountEnd = discountEnd;
     }
 
     public Double getAverageRating() { return averageRating; }

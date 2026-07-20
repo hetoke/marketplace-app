@@ -15,6 +15,7 @@ import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.upload.model.EntityType;
 import com.marketplace.upload.repository.ImageRepository;
 import com.marketplace.upload.service.ImageService;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -36,19 +37,35 @@ public class ProductService {
     private final ProductImageRepository productImageRepository;
     private final ImageRepository imageRepository;
     private final ImageService imageService;
+    private final DiscountService discountService;
 
     public ProductService(
         ProductRepository productRepository,
         CategoryRepository categoryRepository,
         ProductImageRepository productImageRepository,
         ImageRepository imageRepository,
-        ImageService imageService
+        ImageService imageService,
+        DiscountService discountService
     ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productImageRepository = productImageRepository;
         this.imageRepository = imageRepository;
         this.imageService = imageService;
+        this.discountService = discountService;
+    }
+
+    private ProductResponse toResponse(Product product, List<ProductImage> images) {
+        boolean active = discountService.isDiscountActive(product);
+        BigDecimal effective = discountService.computeEffectivePrice(product);
+        return ProductResponse.from(product, images, effective, active);
+    }
+
+    private void applyDiscount(Product product, ProductRequest request) {
+        product.setDiscountType(request.discountType());
+        product.setDiscountValue(request.discountValue());
+        product.setDiscountStart(request.discountStart());
+        product.setDiscountEnd(request.discountEnd());
     }
 
     @Transactional
@@ -78,8 +95,9 @@ public class ProductService {
         product.setDescription(request.description());
         product.setPrice(request.price());
         product.setStock(request.stock());
+        applyDiscount(product, request);
         productRepository.save(product);
-        return ProductResponse.from(product);
+        return toResponse(product, List.of());
     }
 
     @Transactional
@@ -113,9 +131,10 @@ public class ProductService {
         product.setDescription(request.description());
         product.setPrice(request.price());
         product.setStock(request.stock());
+        applyDiscount(product, request);
         product.setUpdatedAt(Instant.now());
         productRepository.save(product);
-        return ProductResponse.from(product);
+        return toResponse(product, List.of());
     }
 
     @Transactional
@@ -179,7 +198,7 @@ public class ProductService {
         var images = productImageRepository.findByProductIdOrderBySortOrderAsc(
             productId
         );
-        return ProductResponse.from(product, images);
+        return toResponse(product, images);
     }
 
     @Transactional(readOnly = true)
@@ -283,7 +302,7 @@ public class ProductService {
         return products
             .stream()
             .map(product ->
-                ProductResponse.from(
+                toResponse(
                     product,
                     imagesByProduct.getOrDefault(
                         product.getId(),
