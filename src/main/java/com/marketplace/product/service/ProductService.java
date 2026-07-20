@@ -16,7 +16,10 @@ import com.marketplace.upload.model.EntityType;
 import com.marketplace.upload.repository.ImageRepository;
 import com.marketplace.upload.service.ImageService;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -201,11 +204,7 @@ public class ProductService {
             request.maxPrice(),
             pageRequest
         );
-        var content = page
-            .getContent()
-            .stream()
-            .map(ProductResponse::from)
-            .toList();
+        var content = toProductResponses(page.getContent());
         return new PageResponse<>(
             content,
             page.getNumber(),
@@ -231,11 +230,7 @@ public class ProductService {
                 categoryId,
                 pageRequest
             );
-        var content = pageResult
-            .getContent()
-            .stream()
-            .map(ProductResponse::from)
-            .toList();
+        var content = toProductResponses(pageResult.getContent());
         return new PageResponse<>(
             content,
             pageResult.getNumber(),
@@ -260,11 +255,7 @@ public class ProductService {
             UUID.fromString(sellerId),
             pageRequest
         );
-        var content = pageResult
-            .getContent()
-            .stream()
-            .map(ProductResponse::from)
-            .toList();
+        var content = toProductResponses(pageResult.getContent());
         return new PageResponse<>(
             content,
             pageResult.getNumber(),
@@ -272,6 +263,35 @@ public class ProductService {
             pageResult.getTotalElements(),
             pageResult.getTotalPages()
         );
+    }
+
+    private List<ProductResponse> toProductResponses(List<Product> products) {
+        if (products.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<ProductImage>> imagesByProduct = productImageRepository
+            .findByProductIdInOrderBySortOrderAsc(
+                products.stream().map(Product::getId).toList()
+            )
+            .stream()
+            .collect(
+                Collectors.groupingBy(
+                    image -> image.getProduct().getId(),
+                    Collectors.toList()
+                )
+            );
+        return products
+            .stream()
+            .map(product ->
+                ProductResponse.from(
+                    product,
+                    imagesByProduct.getOrDefault(
+                        product.getId(),
+                        List.of()
+                    )
+                )
+            )
+            .toList();
     }
 
     private String generateSlug(String name) {
