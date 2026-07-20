@@ -7,6 +7,7 @@ import java.util.UUID;
 public record ProductSearchRequest(
         String query,
         UUID categoryId,
+        UUID sellerId,
         BigDecimal minPrice,
         BigDecimal maxPrice,
         Integer page,

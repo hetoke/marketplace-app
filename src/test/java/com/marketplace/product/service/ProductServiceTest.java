@@ -53,6 +53,9 @@ class ProductServiceTest {
 	@Mock
 	private ImageService imageService;
 
+	@Mock
+	private com.marketplace.product.service.DiscountService discountService;
+
 	@InjectMocks
 	private ProductService productService;
 
@@ -89,7 +92,11 @@ class ProductServiceTest {
 				"Test Product",
 				"A test product",
 				new BigDecimal("29.99"),
-				10);
+				10,
+				null,
+				null,
+				null,
+				null);
 	}
 
 	// ==================== CREATE PRODUCT ====================
@@ -162,7 +169,7 @@ class ProductServiceTest {
 		Product product = createTestProduct(category);
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Updated Product", "Updated description",
-				new BigDecimal("49.99"), 20);
+				new BigDecimal("49.99"), 20, null, null, null, null);
 
 		when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -325,9 +332,9 @@ class ProductServiceTest {
 		Product product = createTestProduct(category);
 		Page<Product> page = new PageImpl<>(List.of(product));
 		ProductSearchRequest request = new ProductSearchRequest(
-				"test", null, null, null, 0, 20, "createdAt");
+				"test", null, null, null, null, 0, 20, "createdAt");
 
-		when(productRepository.search("test", null, null, null,
+		when(productRepository.search("test", null, null, null, null,
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
@@ -343,9 +350,9 @@ class ProductServiceTest {
 	void searchProducts_emptyResults() {
 		Page<Product> page = new PageImpl<>(List.of());
 		ProductSearchRequest request = new ProductSearchRequest(
-				"nonexistent", null, null, null, 0, 20, "createdAt");
+				"nonexistent", null, null, null, null, 0, 20, "createdAt");
 
-		when(productRepository.search("nonexistent", null, null, null,
+		when(productRepository.search("nonexistent", null, null, null, null,
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
@@ -370,9 +377,9 @@ class ProductServiceTest {
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt")),
 				25);
-		ProductSearchRequest request = new ProductSearchRequest(null, null, null, null, null, null, null);
+		ProductSearchRequest request = new ProductSearchRequest(null, null, null, null, null, null, null, null);
 
-		when(productRepository.search(null, null, null, null,
+		when(productRepository.search(null, null, null, null, null,
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
@@ -392,9 +399,9 @@ class ProductServiceTest {
 		Product product = createTestProduct(category);
 		Page<Product> page = new PageImpl<>(List.of(product), PageRequest.of(1, 5), 10);
 		ProductSearchRequest request = new ProductSearchRequest(
-				null, null, new BigDecimal("10"), new BigDecimal("100"), 1, 5, "price");
+				null, null, null, new BigDecimal("10"), new BigDecimal("100"), 1, 5, "price");
 
-		when(productRepository.search(null, null, new BigDecimal("10"), new BigDecimal("100"),
+		when(productRepository.search(null, null, null, new BigDecimal("10"), new BigDecimal("100"),
 				PageRequest.of(1, 5, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "price"))))
 				.thenReturn(page);
@@ -452,7 +459,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Hello! @World# $100%", "desc",
-				new BigDecimal("9.99"), 1);
+				new BigDecimal("9.99"), 1, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -474,7 +481,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "My Test Product", "desc",
-				new BigDecimal("9.99"), 1);
+				new BigDecimal("9.99"), 1, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -496,7 +503,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Hello   World", "desc",
-				new BigDecimal("9.99"), 1);
+				new BigDecimal("9.99"), 1, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));

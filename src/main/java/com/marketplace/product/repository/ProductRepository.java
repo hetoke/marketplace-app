@@ -28,12 +28,14 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT p FROM Product p WHERE " +
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR :query IS NULL) AND " +
            "(p.category.id = :categoryId OR :categoryId IS NULL) AND " +
+           "(p.sellerId = :sellerId OR :sellerId IS NULL) AND " +
            "(p.price >= :minPrice OR :minPrice IS NULL) AND " +
            "(p.price <= :maxPrice OR :maxPrice IS NULL) AND " +
            "p.active = true")
     Page<Product> search(
             @Param("query") String query,
             @Param("categoryId") UUID categoryId,
+            @Param("sellerId") UUID sellerId,
             @Param("minPrice") java.math.BigDecimal minPrice,
             @Param("maxPrice") java.math.BigDecimal maxPrice,
             Pageable pageable);

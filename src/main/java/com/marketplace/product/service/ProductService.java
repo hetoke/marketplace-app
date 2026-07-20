@@ -204,7 +204,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     @Cacheable(
         value = "products",
-        key = "'search:' + #request.query() + ':' + #request.categoryId() + ':' + #request.minPrice() + ':' + #request.maxPrice() + ':' + #request.page() + ':' + #request.size()"
+        key = "'search:' + #request.query() + ':' + #request.categoryId() + ':' + #request.sellerId() + ':' + #request.minPrice() + ':' + #request.maxPrice() + ':' + #request.page() + ':' + #request.size()"
     )
     public PageResponse<ProductResponse> searchProducts(
         ProductSearchRequest request
@@ -219,6 +219,7 @@ public class ProductService {
         Page<Product> page = productRepository.search(
             request.query(),
             request.categoryId(),
+            request.sellerId(),
             request.minPrice(),
             request.maxPrice(),
             pageRequest
