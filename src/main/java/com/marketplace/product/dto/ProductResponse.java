@@ -23,7 +23,8 @@ public record ProductResponse(
         Instant createdAt,
         BigDecimal originalPrice,
         BigDecimal discountPrice,
-        boolean discountActive
+        boolean discountActive,
+        DiscountType discountType
 ) {
     public static ProductResponse from(Product product, List<ProductImage> images) {
         return new ProductResponse(
@@ -42,7 +43,8 @@ public record ProductResponse(
                 product.getCreatedAt(),
                 product.getPrice(),
                 product.getPrice(),
-                false
+                false,
+                product.getDiscountType()
         );
     }
 
@@ -63,7 +65,8 @@ public record ProductResponse(
                 product.getCreatedAt(),
                 product.getPrice(),
                 effectivePrice,
-                discountActive
+                discountActive,
+                product.getDiscountType()
         );
     }
 
