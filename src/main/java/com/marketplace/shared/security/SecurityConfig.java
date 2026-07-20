@@ -26,27 +26,34 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-	private final JwtAuthenticationFilter jwtAuthenticationFilter;
 	private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
 	private final CustomAccessDeniedHandler customAccessDeniedHandler;
 	private final RateLimitFilter rateLimitFilter;
+	private final JwtTokenProvider jwtTokenProvider;
+	private final CustomUserDetailsService customUserDetailsService;
 
-	public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter,
-			CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
+	public SecurityConfig(CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
 			CustomAccessDeniedHandler customAccessDeniedHandler,
-			RateLimitFilter rateLimitFilter) {
-		this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+			RateLimitFilter rateLimitFilter,
+			JwtTokenProvider jwtTokenProvider,
+			CustomUserDetailsService customUserDetailsService) {
 		this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
 		this.customAccessDeniedHandler = customAccessDeniedHandler;
 		this.rateLimitFilter = rateLimitFilter;
+		this.jwtTokenProvider = jwtTokenProvider;
+		this.customUserDetailsService = customUserDetailsService;
 	}
 
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		JwtSecurityContextRepository jwtContextRepository =
+				new JwtSecurityContextRepository(jwtTokenProvider, customUserDetailsService);
+
 		return http
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.securityContext(ctx -> ctx.securityContextRepository(jwtContextRepository))
 				.authorizeHttpRequests(auth -> auth
 						.requestMatchers("/api/v1/auth/**").permitAll()
 						.requestMatchers("/swagger-ui/**", "/api-docs/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
@@ -57,7 +64,6 @@ public class SecurityConfig {
 						.anyRequest().authenticated()
 				)
 				.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-				.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(customAuthenticationEntryPoint)
 						.accessDeniedHandler(customAccessDeniedHandler)

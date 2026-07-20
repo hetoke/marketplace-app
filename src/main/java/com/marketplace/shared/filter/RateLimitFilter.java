@@ -30,7 +30,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter implements Ordered {
 
-	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 20;
+	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 160;
 	private static final Logger log = LoggerFactory.getLogger(RateLimitFilter.class);
 
 	private final ProxyManager<String> proxyManager;

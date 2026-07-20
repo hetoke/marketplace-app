@@ -1,63 +1,61 @@
 package com.marketplace.shared.security;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.core.Ordered;
-import org.springframework.stereotype.Component;
+import org.springframework.security.web.context.HttpRequestResponseHolder;
+import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.util.StringUtils;
-import org.springframework.web.filter.OncePerRequestFilter;
 
-@Component
-public class JwtAuthenticationFilter extends OncePerRequestFilter implements Ordered {
+public class JwtSecurityContextRepository implements SecurityContextRepository {
 
-	private static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 150;
-
-	private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+	private static final Logger log = LoggerFactory.getLogger(JwtSecurityContextRepository.class);
 	private static final String AUTHORIZATION_HEADER = "Authorization";
 	private static final String BEARER_PREFIX = "Bearer ";
 
 	private final JwtTokenProvider jwtTokenProvider;
 	private final UserDetailsService userDetailsService;
 
-	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider, UserDetailsService userDetailsService) {
+	public JwtSecurityContextRepository(JwtTokenProvider jwtTokenProvider, UserDetailsService userDetailsService) {
 		this.jwtTokenProvider = jwtTokenProvider;
 		this.userDetailsService = userDetailsService;
 	}
 
 	@Override
-	public int getOrder() {
-		return ORDER;
-	}
+	public SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder) {
+		SecurityContext context = SecurityContextHolder.createEmptyContext();
 
-	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-			throws ServletException, IOException {
 		try {
-			String token = extractToken(request);
+			String token = extractToken(requestResponseHolder.getRequest());
 			if (StringUtils.hasText(token) && jwtTokenProvider.validateToken(token, TokenType.ACCESS)) {
 				String userId = jwtTokenProvider.getUserIdFromToken(token, TokenType.ACCESS);
 				UserDetails userDetails = userDetailsService.loadUserByUsername(userId);
-				UsernamePasswordAuthenticationToken authentication =
-						new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-				authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-				SecurityContextHolder.getContext().setAuthentication(authentication);
+				Authentication authentication = new UsernamePasswordAuthenticationToken(
+						userDetails, null, userDetails.getAuthorities());
+				context.setAuthentication(authentication);
 			}
 		} catch (Exception e) {
 			log.debug("Could not set user authentication in security context", e);
 		}
 
-		filterChain.doFilter(request, response);
+		return context;
+	}
+
+	@Override
+	public void saveContext(SecurityContext context, HttpServletRequest request, HttpServletResponse response) {
+	}
+
+	@Override
+	public boolean containsContext(HttpServletRequest request) {
+		return extractToken(request) != null;
 	}
 
 	private String extractToken(HttpServletRequest request) {
