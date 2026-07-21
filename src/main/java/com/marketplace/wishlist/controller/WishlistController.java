@@ -51,4 +51,12 @@ public class WishlistController {
         wishlistService.removeFromWishlist(userId, productId);
         return ResponseEntity.ok(ApiResponse.ok("Product removed from wishlist", null));
     }
+
+    @DeleteMapping
+    @PreAuthorize("hasRole('BUYER')")
+    public ResponseEntity<ApiResponse<Void>> clearWishlist() {
+        String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+        wishlistService.clearWishlist(userId);
+        return ResponseEntity.ok(ApiResponse.ok("Wishlist cleared", null));
+    }
 }

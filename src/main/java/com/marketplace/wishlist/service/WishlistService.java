@@ -70,4 +70,10 @@ public class WishlistService {
 
         wishlistRepository.deleteByUserIdAndProductId(userUuid, productId);
     }
+
+    @Transactional
+    public void clearWishlist(String userId) {
+        UUID userUuid = UUID.fromString(userId);
+        wishlistRepository.deleteByUserId(userUuid);
+    }
 }

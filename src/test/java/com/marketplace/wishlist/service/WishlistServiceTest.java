@@ -151,4 +151,13 @@ class WishlistServiceTest {
         assertThatThrownBy(() -> wishlistService.removeFromWishlist(USER_ID, productId))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void clearWishlist_removesAllItems() {
+        UUID userUuid = UUID.fromString(USER_ID);
+
+        wishlistService.clearWishlist(USER_ID);
+
+        verify(wishlistRepository).deleteByUserId(userUuid);
+    }
 }

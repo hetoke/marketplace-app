@@ -131,4 +131,11 @@ class WishlistControllerTest {
         mockMvc.perform(delete("/api/v1/buyers/wishlist/" + productId))
                 .andExpect(status().isNotFound());
     }
+
+    @Test
+    void clearWishlist_returnsOk() throws Exception {
+        mockMvc.perform(delete("/api/v1/buyers/wishlist"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value("Wishlist cleared"));
+    }
 }
