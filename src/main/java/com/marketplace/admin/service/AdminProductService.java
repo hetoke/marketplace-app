@@ -44,7 +44,7 @@ public class AdminProductService {
     }
 
     @Transactional
-    @CacheEvict(value = {"products", "analyticsRevenue", "analyticsOrders", "analyticsUsers", "analyticsProducts"}, allEntries = true)
+    @CacheEvict(value = {"products", "productById", "analyticsRevenue", "analyticsOrders", "analyticsUsers", "analyticsProducts"}, allEntries = true)
     public AdminProductResponse updateProductStatus(UUID productId, boolean active, UUID adminId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", productId));
