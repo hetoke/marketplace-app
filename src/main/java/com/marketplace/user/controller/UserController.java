@@ -1,6 +1,7 @@
 package com.marketplace.user.controller;
 
 import com.marketplace.shared.dto.ApiResponse;
+import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.user.dto.AuthResponse;
 import com.marketplace.user.dto.ChangePasswordRequest;
 import com.marketplace.user.dto.UpdateProfileRequest;
@@ -41,6 +42,7 @@ public class UserController {
 	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<UserResponse>> getProfile() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
+		System.out.println(userId);
 		UserResponse user = userService.getProfile(userId);
 		return ResponseEntity.ok(ApiResponse.ok(user));
 	}
@@ -66,7 +68,7 @@ public class UserController {
 	public ResponseEntity<ApiResponse<Map<String, String>>> setupMFA() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
-				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		if (user.getAuthenticationType() == User.AuthenticationType.OIDC) {
 			return ResponseEntity.badRequest().body(ApiResponse.ok("MFA is not available for Google sign-in accounts", null));
 		}
@@ -80,7 +82,7 @@ public class UserController {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		String otp = body.get("otp");
 		User user = userRepository.findById(UUID.fromString(userId))
-				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		AuthResponse response = mfaService.verifySetup(user, otp);
 		return ResponseEntity.ok(ApiResponse.ok("MFA enabled successfully", response));
 	}
@@ -91,7 +93,7 @@ public class UserController {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		String otp = body.get("otp");
 		User user = userRepository.findById(UUID.fromString(userId))
-				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		mfaService.disableMFA(user, otp);
 		return ResponseEntity.ok(ApiResponse.ok("MFA disabled successfully", null));
 	}
@@ -101,7 +103,7 @@ public class UserController {
 	public ResponseEntity<ApiResponse<Map<String, String>>> sendDisableOTP() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
-				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		mfaService.sendDisableOTP(user);
 		return ResponseEntity.ok(ApiResponse.ok("OTP sent to your email", Map.of("message", "OTP sent to your email")));
 	}
@@ -111,7 +113,7 @@ public class UserController {
 	public ResponseEntity<ApiResponse<Map<String, Object>>> getMFAStatus() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		User user = userRepository.findById(UUID.fromString(userId))
-				.orElseThrow(() -> new com.marketplace.shared.exception.ResourceNotFoundException("User", "id", userId));
+				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 		long recoveryCodesRemaining = mfaService.getRecoveryCodesRemaining(user);
 		return ResponseEntity.ok(ApiResponse.ok(Map.of(
 				"mfaEnabled", user.isMfaEnabled(),
