@@ -45,6 +45,7 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedAdminAccount();
+        seedCategories();
         seedSellersAndBuyer();
         seedProducts();
         seedReviews();
@@ -69,6 +70,28 @@ public class DataSeeder implements CommandLineRunner {
         userRepository.save(admin);
 
         log.info("Admin account created: {}", email);
+    }
+
+    private void seedCategories() {
+        List<CategorySeed> seeds = List.of(
+            new CategorySeed("electronics", "Điện tử", "Điện thoại, máy tính, gadget và phụ kiện"),
+            new CategorySeed("clothing", "Thời trang", "Quần áo nam, nữ và trẻ em"),
+            new CategorySeed("home-garden", "Nhà cửa & Vườn", "Nội thất, decor, dụng cụ nhà bếp và làm vườn"),
+            new CategorySeed("books", "Sách", "Văn học, sách thường thức, giáo trình và sách điện tử"),
+            new CategorySeed("sports", "Thể thao", "Dụng cụ tập luyện, đồ thể thao và outdoor gear"),
+            new CategorySeed("beauty", "Làm đẹp", "Chăm sóc da, trang điểm, chăm sóc tóc và cá nhân"),
+            new CategorySeed("toys", "Đồ chơi", "Đồ chơi mô hình, trò chơi board game, puzzle và giáo dục"),
+            new CategorySeed("automotive", "Ô tô & Xe máy", "Phụ kiện và phụ tùng xe hơi, xe máy")
+        );
+
+        for (CategorySeed seed : seeds) {
+            categoryRepository.findBySlug(seed.slug()).ifPresent(category -> {
+                category.setName(seed.name());
+                category.setDescription(seed.description());
+                categoryRepository.save(category);
+            });
+        }
+        log.info("Categories updated to Vietnamese");
     }
 
     private void seedSellersAndBuyer() {
@@ -220,6 +243,8 @@ public class DataSeeder implements CommandLineRunner {
             .replaceAll("-+", "-")
             .replaceAll("^-|-$", "");
     }
+
+    private record CategorySeed(String slug, String name, String description) {}
 
     private record UserSeed(String email, String displayName, User.Role role, String street, String province, String district, String ward) {}
 
