@@ -15,6 +15,8 @@ import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.upload.model.EntityType;
 import com.marketplace.upload.repository.ImageRepository;
 import com.marketplace.upload.service.ImageService;
+import com.marketplace.user.model.User;
+import com.marketplace.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -38,6 +40,7 @@ public class ProductService {
     private final ImageRepository imageRepository;
     private final ImageService imageService;
     private final DiscountService discountService;
+    private final UserRepository userRepository;
 
     public ProductService(
         ProductRepository productRepository,
@@ -45,7 +48,8 @@ public class ProductService {
         ProductImageRepository productImageRepository,
         ImageRepository imageRepository,
         ImageService imageService,
-        DiscountService discountService
+        DiscountService discountService,
+        UserRepository userRepository
     ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
@@ -53,12 +57,16 @@ public class ProductService {
         this.imageRepository = imageRepository;
         this.imageService = imageService;
         this.discountService = discountService;
+        this.userRepository = userRepository;
     }
 
     private ProductResponse toResponse(Product product, List<ProductImage> images) {
         boolean active = discountService.isDiscountActive(product);
         BigDecimal effective = discountService.computeEffectivePrice(product);
-        return ProductResponse.from(product, images, effective, active);
+        String sellerName = userRepository.findById(product.getSellerId())
+                .map(User::getDisplayName)
+                .orElse(null);
+        return ProductResponse.from(product, images, effective, active, sellerName);
     }
 
     private void applyDiscount(Product product, ProductRequest request) {
@@ -69,7 +77,7 @@ public class ProductService {
     }
 
     @Transactional
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "productById"}, allEntries = true)
     public ProductResponse createProduct(
         String sellerId,
         ProductRequest request
@@ -101,7 +109,7 @@ public class ProductService {
     }
 
     @Transactional
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "productById"}, allEntries = true)
     public ProductResponse updateProduct(
         String sellerId,
         UUID productId,
@@ -138,7 +146,7 @@ public class ProductService {
     }
 
     @Transactional
-    @CacheEvict(value = "products", allEntries = true)
+    @CacheEvict(value = {"products", "productById"}, allEntries = true)
     public void deleteProduct(String sellerId, UUID productId) {
         Product product = productRepository
             .findById(productId)
@@ -156,6 +164,7 @@ public class ProductService {
     }
 
     @Transactional
+    @CacheEvict(value = {"products", "productById"}, allEntries = true)
     public void deleteProductImage(
         String sellerId,
         UUID productId,
@@ -300,17 +309,29 @@ public class ProductService {
                     Collectors.toList()
                 )
             );
+
+        List<UUID> sellerIds = products.stream()
+                .map(Product::getSellerId)
+                .distinct()
+                .toList();
+        Map<UUID, String> sellerNames = userRepository.findAllById(sellerIds)
+                .stream()
+                .collect(Collectors.toMap(User::getId, u -> u.getDisplayName() != null ? u.getDisplayName() : ""));
+
         return products
             .stream()
-            .map(product ->
-                toResponse(
+            .map(product -> {
+                String sellerName = sellerNames.get(product.getSellerId());
+                boolean active = discountService.isDiscountActive(product);
+                BigDecimal effective = discountService.computeEffectivePrice(product);
+                return ProductResponse.from(
                     product,
-                    imagesByProduct.getOrDefault(
-                        product.getId(),
-                        List.of()
-                    )
-                )
-            )
+                    imagesByProduct.getOrDefault(product.getId(), List.of()),
+                    effective,
+                    active,
+                    sellerName
+                );
+            })
             .toList();
     }
 

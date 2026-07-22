@@ -26,6 +26,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,7 @@ public class UploadService {
     private final UserRepository userRepository;
     private final SupabaseStorageClient storageClient;
     private final SupabaseStorageProperties storageProperties;
+    private final CacheManager cacheManager;
 
     @Value("${app.upload.max-images-per-product:10}")
     private int maxImagesPerProduct;
@@ -65,7 +67,8 @@ public class UploadService {
         ProductImageRepository productImageRepository,
         UserRepository userRepository,
         SupabaseStorageClient storageClient,
-        SupabaseStorageProperties storageProperties
+        SupabaseStorageProperties storageProperties,
+        CacheManager cacheManager
     ) {
         this.uploadSessionRepository = uploadSessionRepository;
         this.imageRepository = imageRepository;
@@ -74,6 +77,7 @@ public class UploadService {
         this.userRepository = userRepository;
         this.storageClient = storageClient;
         this.storageProperties = storageProperties;
+        this.cacheManager = cacheManager;
     }
 
     @Transactional
@@ -326,6 +330,10 @@ public class UploadService {
             productImage.setSortOrder((int) imageCount);
             productImage.setPrimary(imageCount == 0);
             productImageRepository.save(productImage);
+            var productsCache = cacheManager.getCache("products");
+            if (productsCache != null) productsCache.clear();
+            var productByIdCache = cacheManager.getCache("productById");
+            if (productByIdCache != null) productByIdCache.clear();
         }
     }
 
