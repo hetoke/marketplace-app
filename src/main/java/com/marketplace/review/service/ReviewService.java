@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,40 +32,50 @@ public class ReviewService {
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
+    private final CacheManager cacheManager;
 
     public ReviewService(ReviewRepository reviewRepository,
                          ProductRepository productRepository,
                          OrderRepository orderRepository,
                          OrderItemRepository orderItemRepository,
-                         UserRepository userRepository) {
+                         UserRepository userRepository,
+                         CacheManager cacheManager) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
+        this.cacheManager = cacheManager;
     }
 
     @Transactional
     public ReviewResponse createReview(String userId, CreateReviewRequest request) {
         UUID buyerId = UUID.fromString(userId);
 
-        productRepository.findById(request.productId())
+        Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", request.productId()));
-
-        if (reviewRepository.existsByProductIdAndBuyerId(request.productId(), buyerId)) {
-            throw new BusinessException("You have already reviewed this product");
-        }
 
         boolean verifiedPurchase = hasPurchasedProduct(buyerId, request.productId());
 
-        Review review = new Review(
-                request.productId(),
-                buyerId,
-                request.rating(),
-                request.comment(),
-                verifiedPurchase
-        );
+        Review review = reviewRepository.findByProductIdAndBuyerId(request.productId(), buyerId)
+                .orElse(null);
+
+        if (review != null) {
+            review.setRating(request.rating());
+            review.setComment(request.comment());
+            review.setUpdatedAt(Instant.now());
+        } else {
+            review = new Review(
+                    request.productId(),
+                    buyerId,
+                    request.rating(),
+                    request.comment(),
+                    verifiedPurchase
+            );
+        }
         review = reviewRepository.save(review);
+
+        recalculateProductRating(product);
 
         User buyer = userRepository.findById(buyerId).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
@@ -124,6 +135,8 @@ public class ReviewService {
         review.setUpdatedAt(Instant.now());
         review = reviewRepository.save(review);
 
+        productRepository.findById(review.getProductId()).ifPresent(this::recalculateProductRating);
+
         User buyer = userRepository.findById(buyerId).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
 
@@ -140,7 +153,10 @@ public class ReviewService {
             throw new BusinessException("You can only delete your own reviews");
         }
 
+        UUID productId = review.getProductId();
         reviewRepository.delete(review);
+
+        productRepository.findById(productId).ifPresent(this::recalculateProductRating);
     }
 
     @Transactional(readOnly = true)
@@ -166,5 +182,15 @@ public class ReviewService {
             }
         }
         return false;
+    }
+
+    private void recalculateProductRating(Product product) {
+        Double avg = reviewRepository.findAverageRatingByProductId(product.getId()).orElse(0.0);
+        Long count = reviewRepository.countByProductId(product.getId());
+        product.setAverageRating(Math.round(avg * 10.0) / 10.0);
+        product.setReviewCount(count.intValue());
+        productRepository.save(product);
+        var productByIdCache = cacheManager.getCache("productById");
+        if (productByIdCache != null) productByIdCache.evict(product.getId());
     }
 }

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.Cache;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTest {
@@ -49,6 +52,9 @@ class ReviewServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private CacheManager cacheManager;
 
     @InjectMocks
     private ReviewService reviewService;
@@ -83,16 +89,23 @@ class ReviewServiceTest {
         buyer.setId(userUuid);
         buyer.setDisplayName("Test Buyer");
 
+        Cache productByIdCache = mock(Cache.class);
+        when(cacheManager.getCache("productById")).thenReturn(productByIdCache);
+
         when(productRepository.findById(product.getId()))
                 .thenReturn(Optional.of(product));
-        when(reviewRepository.existsByProductIdAndBuyerId(product.getId(), userUuid))
-                .thenReturn(false);
+        when(reviewRepository.findByProductIdAndBuyerId(product.getId(), userUuid))
+                .thenReturn(Optional.empty());
         when(orderRepository.findByBuyerIdOrderByCreatedAtDesc(userUuid))
                 .thenReturn(List.of());
         when(reviewRepository.save(any(Review.class)))
                 .thenReturn(review);
         when(userRepository.findById(userUuid))
                 .thenReturn(Optional.of(buyer));
+        when(reviewRepository.findAverageRatingByProductId(product.getId()))
+                .thenReturn(Optional.of(5.0));
+        when(reviewRepository.countByProductId(product.getId()))
+                .thenReturn(1L);
 
         CreateReviewRequest request = new CreateReviewRequest(product.getId(), 5, "Great product!");
         ReviewResponse response = reviewService.createReview(USER_ID, request);
@@ -116,20 +129,40 @@ class ReviewServiceTest {
     }
 
     @Test
-    void createReview_throwsException_whenAlreadyReviewed() {
+    void createReview_upserts_whenAlreadyReviewed() {
         UUID userUuid = UUID.fromString(USER_ID);
         UUID sellerId = UUID.randomUUID();
         Product product = createTestProduct(sellerId);
+        Review existingReview = createTestReview(product.getId(), userUuid);
+        Review updatedReview = createTestReview(product.getId(), userUuid);
+        updatedReview.setRating(4);
+        updatedReview.setComment("Updated!");
+        User buyer = new User();
+        buyer.setId(userUuid);
+        buyer.setDisplayName("Test Buyer");
+
+        Cache productByIdCache = mock(Cache.class);
+        when(cacheManager.getCache("productById")).thenReturn(productByIdCache);
 
         when(productRepository.findById(product.getId()))
                 .thenReturn(Optional.of(product));
-        when(reviewRepository.existsByProductIdAndBuyerId(product.getId(), userUuid))
-                .thenReturn(true);
+        when(reviewRepository.findByProductIdAndBuyerId(product.getId(), userUuid))
+                .thenReturn(Optional.of(existingReview));
+        when(reviewRepository.save(any(Review.class)))
+                .thenReturn(updatedReview);
+        when(userRepository.findById(userUuid))
+                .thenReturn(Optional.of(buyer));
+        when(reviewRepository.findAverageRatingByProductId(product.getId()))
+                .thenReturn(Optional.of(4.0));
+        when(reviewRepository.countByProductId(product.getId()))
+                .thenReturn(1L);
 
-        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 5, "Great!");
-        assertThatThrownBy(() -> reviewService.createReview(USER_ID, request))
-                .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("already reviewed");
+        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 4, "Updated!");
+        ReviewResponse response = reviewService.createReview(USER_ID, request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.rating()).isEqualTo(4);
+        assertThat(response.comment()).isEqualTo("Updated!");
     }
 
     @Test
@@ -142,12 +175,21 @@ class ReviewServiceTest {
         buyer.setId(userUuid);
         buyer.setDisplayName("Test Buyer");
 
+        Cache productByIdCache = mock(Cache.class);
+        when(cacheManager.getCache("productById")).thenReturn(productByIdCache);
+
         when(reviewRepository.findById(review.getId()))
                 .thenReturn(Optional.of(review));
         when(reviewRepository.save(any(Review.class)))
                 .thenReturn(review);
         when(userRepository.findById(userUuid))
                 .thenReturn(Optional.of(buyer));
+        when(productRepository.findById(product.getId()))
+                .thenReturn(Optional.of(product));
+        when(reviewRepository.findAverageRatingByProductId(product.getId()))
+                .thenReturn(Optional.of(4.0));
+        when(reviewRepository.countByProductId(product.getId()))
+                .thenReturn(1L);
 
         UpdateReviewRequest request = new UpdateReviewRequest(4, "Updated comment");
         ReviewResponse response = reviewService.updateReview(USER_ID, review.getId(), request);
@@ -180,8 +222,17 @@ class ReviewServiceTest {
         Product product = createTestProduct(sellerId);
         Review review = createTestReview(product.getId(), userUuid);
 
+        Cache productByIdCache = mock(Cache.class);
+        when(cacheManager.getCache("productById")).thenReturn(productByIdCache);
+
         when(reviewRepository.findById(review.getId()))
                 .thenReturn(Optional.of(review));
+        when(productRepository.findById(product.getId()))
+                .thenReturn(Optional.of(product));
+        when(reviewRepository.findAverageRatingByProductId(product.getId()))
+                .thenReturn(Optional.of(0.0));
+        when(reviewRepository.countByProductId(product.getId()))
+                .thenReturn(0L);
 
         reviewService.deleteReview(USER_ID, review.getId());
 
