@@ -1,20 +1,6 @@
 package com.marketplace.shared.config;
 
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
-import com.fasterxml.jackson.databind.type.TypeFactory;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.marketplace.admin.dto.OrderAnalyticsResponse;
-import com.marketplace.admin.dto.ProductAnalyticsResponse;
-import com.marketplace.admin.dto.RevenueAnalyticsResponse;
-import com.marketplace.admin.dto.UserAnalyticsResponse;
-import com.marketplace.product.dto.CategoryResponse;
-import com.marketplace.product.dto.ProductResponse;
-import com.marketplace.shared.dto.PageResponse;
 import java.time.Duration;
-import java.util.List;
 
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -23,7 +9,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
@@ -44,12 +29,9 @@ public class CacheConfig {
 
 
     @Bean
-    public CacheManager cacheManager(
-            RedisConnectionFactory connectionFactory,
-            ObjectMapper redisObjectMapper
-    ) {
+    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
 
-        TypeFactory typeFactory = redisObjectMapper.getTypeFactory();
+        JsonCacheSerializer serializer = new JsonCacheSerializer();
 
         RedisCacheConfiguration defaultConfig =
                 RedisCacheConfiguration.defaultCacheConfig()
@@ -57,6 +39,10 @@ public class CacheConfig {
                         .serializeKeysWith(
                                 RedisSerializationContext.SerializationPair
                                         .fromSerializer(new StringRedisSerializer())
+                        )
+                        .serializeValuesWith(
+                                RedisSerializationContext.SerializationPair
+                                        .fromSerializer(serializer)
                         )
                         .disableCachingNullValues();
 
@@ -67,123 +53,44 @@ public class CacheConfig {
 
                 .withCacheConfiguration(
                         CACHE_PRODUCTS,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(5),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(5))
                 )
 
                 .withCacheConfiguration(
                         CACHE_PRODUCT_BY_ID,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(10),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(10))
                 )
 
                 .withCacheConfiguration(
                         CACHE_CATEGORIES_BY_ID,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(15),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(15))
                 )
 
                 .withCacheConfiguration(
                         CACHE_CATEGORIES_ALL,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(15),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(15))
                 )
 
                 .withCacheConfiguration(
                         CACHE_ANALYTICS_REVENUE,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(5),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(5))
                 )
 
                 .withCacheConfiguration(
                         CACHE_ANALYTICS_ORDERS,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(5),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(5))
                 )
 
                 .withCacheConfiguration(
                         CACHE_ANALYTICS_USERS,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(5),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(5))
                 )
 
                 .withCacheConfiguration(
                         CACHE_ANALYTICS_PRODUCTS,
-                        cacheConfig(
-                                defaultConfig,
-                                Duration.ofMinutes(5),
-                                redisObjectMapper
-                        )
+                        defaultConfig.entryTtl(Duration.ofMinutes(5))
                 )
 
                 .build();
-    }
-
-
-    @Bean
-    public ObjectMapper redisObjectMapper() {
-
-        ObjectMapper mapper = new ObjectMapper();
-
-        mapper.registerModule(new JavaTimeModule());
-
-        mapper.disable(
-                SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
-        );
-
-
-        mapper.activateDefaultTyping(
-                BasicPolymorphicTypeValidator.builder()
-                        .allowIfSubType("com.marketplace")
-                        .allowIfSubType("java.util")
-                        .build(),
-
-                ObjectMapper.DefaultTyping.NON_FINAL,
-
-                JsonTypeInfo.As.PROPERTY
-        );
-
-
-        return mapper;
-    }
-
-
-    private RedisCacheConfiguration cacheConfig(
-            RedisCacheConfiguration defaultConfig,
-            Duration ttl,
-            ObjectMapper mapper
-    ) {
-
-        GenericJackson2JsonRedisSerializer serializer =
-                new GenericJackson2JsonRedisSerializer(mapper);
-
-
-        return defaultConfig
-                .entryTtl(ttl)
-                .serializeValuesWith(
-                        RedisSerializationContext.SerializationPair
-                                .fromSerializer(serializer)
-                );
     }
 }
