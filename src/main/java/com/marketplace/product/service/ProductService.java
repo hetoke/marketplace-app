@@ -60,16 +60,22 @@ public class ProductService {
         this.userRepository = userRepository;
     }
 
-    private ProductResponse toResponse(Product product, List<ProductImage> images) {
-        boolean active = discountService.isDiscountActive(product);
-        BigDecimal effective = discountService.computeEffectivePrice(product);
-        String sellerName = userRepository.findById(product.getSellerId())
-                .map(User::getDisplayName)
-                .orElse(null);
-        return ProductResponse.from(product, images, effective, active, sellerName);
-    }
+private ProductResponse toResponse(Product product, List<ProductImage> images) {
+         boolean active = discountService.isDiscountActive(product);
+         BigDecimal effective = discountService.computeEffectivePrice(product);
+         Long timeLeft = discountService.computeTimeLeft(product);
+         String sellerName = userRepository.findById(product.getSellerId())
+                 .map(User::getDisplayName)
+                 .orElse(null);
+         return ProductResponse.from(product, images, effective, active, sellerName, timeLeft);
+     }
 
-    private void applyDiscount(Product product, ProductRequest request) {
+private void applyDiscount(Product product, ProductRequest request) {
+        if (request.discountType() != null && request.discountValue() != null && request.discountValue().compareTo(BigDecimal.ZERO) > 0) {
+            if (request.discountStart() != null && request.discountStart().isBefore(Instant.now())) {
+                throw new IllegalArgumentException("discountStart must not be in the past");
+            }
+        }
         product.setDiscountType(request.discountType());
         product.setDiscountValue(request.discountValue());
         product.setDiscountStart(request.discountStart());
@@ -318,21 +324,23 @@ public class ProductService {
                 .stream()
                 .collect(Collectors.toMap(User::getId, u -> u.getDisplayName() != null ? u.getDisplayName() : ""));
 
-        return products
-            .stream()
-            .map(product -> {
-                String sellerName = sellerNames.get(product.getSellerId());
-                boolean active = discountService.isDiscountActive(product);
-                BigDecimal effective = discountService.computeEffectivePrice(product);
-                return ProductResponse.from(
-                    product,
-                    imagesByProduct.getOrDefault(product.getId(), List.of()),
-                    effective,
-                    active,
-                    sellerName
-                );
-            })
-            .toList();
+return products
+             .stream()
+             .map(product -> {
+                 String sellerName = sellerNames.get(product.getSellerId());
+                 boolean active = discountService.isDiscountActive(product);
+                 BigDecimal effective = discountService.computeEffectivePrice(product);
+                 Long timeLeft = discountService.computeTimeLeft(product);
+                 return ProductResponse.from(
+                     product,
+                     imagesByProduct.getOrDefault(product.getId(), List.of()),
+                     effective,
+                     active,
+                     sellerName,
+                     timeLeft
+                 );
+             })
+             .toList();
     }
 
     private String generateSlug(String name) {

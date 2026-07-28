@@ -1,8 +1,9 @@
 package com.marketplace.shared.config;
 
-import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.BasicPolymorphicTypeValidator;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.marketplace.admin.dto.OrderAnalyticsResponse;
@@ -14,6 +15,7 @@ import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.shared.dto.PageResponse;
 import java.time.Duration;
 import java.util.List;
+
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -21,9 +23,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+
 
 @Configuration
 @EnableCaching
@@ -33,61 +36,154 @@ public class CacheConfig {
     private static final String CACHE_PRODUCT_BY_ID = "productById";
     private static final String CACHE_CATEGORIES_BY_ID = "categoriesById";
     private static final String CACHE_CATEGORIES_ALL = "categoriesAll";
+
     private static final String CACHE_ANALYTICS_REVENUE = "analyticsRevenue";
     private static final String CACHE_ANALYTICS_ORDERS = "analyticsOrders";
     private static final String CACHE_ANALYTICS_USERS = "analyticsUsers";
     private static final String CACHE_ANALYTICS_PRODUCTS = "analyticsProducts";
 
-    @Bean
-    public CacheManager cacheManager(RedisConnectionFactory connectionFactory) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        TypeFactory typeFactory = objectMapper.getTypeFactory();
 
-        RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(10))
-                .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
-                .disableCachingNullValues();
+    @Bean
+    public CacheManager cacheManager(
+            RedisConnectionFactory connectionFactory,
+            ObjectMapper redisObjectMapper
+    ) {
+
+        TypeFactory typeFactory = redisObjectMapper.getTypeFactory();
+
+        RedisCacheConfiguration defaultConfig =
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .entryTtl(Duration.ofMinutes(10))
+                        .serializeKeysWith(
+                                RedisSerializationContext.SerializationPair
+                                        .fromSerializer(new StringRedisSerializer())
+                        )
+                        .disableCachingNullValues();
+
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
                 .transactionAware()
-                .withCacheConfiguration(CACHE_PRODUCTS, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(5), objectMapper,
-                        typeFactory.constructParametricType(PageResponse.class, ProductResponse.class)))
-                .withCacheConfiguration(CACHE_PRODUCT_BY_ID, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(10), objectMapper,
-                        typeFactory.constructType(ProductResponse.class)))
-                .withCacheConfiguration(CACHE_CATEGORIES_BY_ID, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(15), objectMapper,
-                        typeFactory.constructType(CategoryResponse.class)))
-                .withCacheConfiguration(CACHE_CATEGORIES_ALL, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(15), objectMapper,
-                        typeFactory.constructParametricType(List.class, CategoryResponse.class)))
-                .withCacheConfiguration(CACHE_ANALYTICS_REVENUE, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(5), objectMapper,
-                        typeFactory.constructType(RevenueAnalyticsResponse.class)))
-                .withCacheConfiguration(CACHE_ANALYTICS_ORDERS, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(5), objectMapper,
-                        typeFactory.constructType(OrderAnalyticsResponse.class)))
-                .withCacheConfiguration(CACHE_ANALYTICS_USERS, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(5), objectMapper,
-                        typeFactory.constructType(UserAnalyticsResponse.class)))
-                .withCacheConfiguration(CACHE_ANALYTICS_PRODUCTS, cacheConfig(defaultConfig,
-                        Duration.ofMinutes(5), objectMapper,
-                        typeFactory.constructType(ProductAnalyticsResponse.class)))
+
+                .withCacheConfiguration(
+                        CACHE_PRODUCTS,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(5),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_PRODUCT_BY_ID,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(10),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_CATEGORIES_BY_ID,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(15),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_CATEGORIES_ALL,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(15),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_ANALYTICS_REVENUE,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(5),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_ANALYTICS_ORDERS,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(5),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_ANALYTICS_USERS,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(5),
+                                redisObjectMapper
+                        )
+                )
+
+                .withCacheConfiguration(
+                        CACHE_ANALYTICS_PRODUCTS,
+                        cacheConfig(
+                                defaultConfig,
+                                Duration.ofMinutes(5),
+                                redisObjectMapper
+                        )
+                )
+
                 .build();
     }
 
-    private RedisCacheConfiguration cacheConfig(RedisCacheConfiguration defaultConfig,
-                                                 Duration ttl,
-                                                 ObjectMapper objectMapper,
-                                                 JavaType valueType) {
-        Jackson2JsonRedisSerializer<Object> serializer =
-                new Jackson2JsonRedisSerializer<>(objectMapper, valueType);
+
+    @Bean
+    public ObjectMapper redisObjectMapper() {
+
+        ObjectMapper mapper = new ObjectMapper();
+
+        mapper.registerModule(new JavaTimeModule());
+
+        mapper.disable(
+                SerializationFeature.WRITE_DATES_AS_TIMESTAMPS
+        );
+
+
+        mapper.activateDefaultTyping(
+                BasicPolymorphicTypeValidator.builder()
+                        .allowIfSubType("com.marketplace")
+                        .allowIfSubType("java.util")
+                        .build(),
+
+                ObjectMapper.DefaultTyping.NON_FINAL,
+
+                JsonTypeInfo.As.PROPERTY
+        );
+
+
+        return mapper;
+    }
+
+
+    private RedisCacheConfiguration cacheConfig(
+            RedisCacheConfiguration defaultConfig,
+            Duration ttl,
+            ObjectMapper mapper
+    ) {
+
+        GenericJackson2JsonRedisSerializer serializer =
+                new GenericJackson2JsonRedisSerializer(mapper);
+
+
         return defaultConfig
                 .entryTtl(ttl)
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+                .serializeValuesWith(
+                        RedisSerializationContext.SerializationPair
+                                .fromSerializer(serializer)
+                );
     }
 }

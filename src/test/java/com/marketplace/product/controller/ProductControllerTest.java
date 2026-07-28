@@ -62,6 +62,7 @@ class ProductControllerTest {
 		return new ProductResponse(
 				UUID.randomUUID().toString(),
 				sellerId,
+				"Test Seller",
 				new CategoryResponse(UUID.randomUUID().toString(), "Electronics",
 						"Electronic devices", "electronics", null, true, java.time.Instant.now()),
 				"Test Product",
@@ -71,9 +72,16 @@ class ProductControllerTest {
 				10,
 				0.0,
 				0,
+				0,
 				true,
 				List.of(),
-				java.time.Instant.now());
+				java.time.Instant.now(),
+				new BigDecimal("29.99"),
+				new BigDecimal("29.99"),
+				false,
+				null,
+				null,
+				null);
 	}
 
 	private record ProductBody(String categoryId, String name, String description,

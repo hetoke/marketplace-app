@@ -41,6 +41,18 @@ public class DiscountService {
         };
     }
 
+    public Long computeTimeLeft(Product product) {
+        if (!isDiscountActive(product)) {
+            return null;
+        }
+        Instant end = product.getDiscountEnd();
+        if (end == null) {
+            return null;
+        }
+        long millis = Instant.now().toEpochMilli() - end.toEpochMilli();
+        return millis < 0 ? -millis : 0;
+    }
+
     public BigDecimal computeDiscountAmount(Product product) {
         return product.getPrice().subtract(computeEffectivePrice(product));
     }
