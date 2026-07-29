@@ -1,5 +1,6 @@
 package com.marketplace.product.service;
 
+import com.marketplace.product.dto.CategoryCache;
 import com.marketplace.product.dto.CategoryRequest;
 import com.marketplace.product.dto.CategoryResponse;
 import com.marketplace.product.model.Category;
@@ -77,11 +78,16 @@ public class CategoryService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "categoriesAll", key = "'all'")
     public List<CategoryResponse> getAllCategories() {
-        return categoryRepository.findAll().stream()
+        return getAllCategoriesCached().items();
+    }
+
+    @Cacheable(value = "categoriesAll", key = "'all'")
+    public CategoryCache getAllCategoriesCached() {
+        List<CategoryResponse> items = categoryRepository.findAll().stream()
                 .map(CategoryResponse::from)
                 .toList();
+        return new CategoryCache(items);
     }
 
     @Transactional
