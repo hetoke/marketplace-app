@@ -1,5 +1,6 @@
 package com.marketplace.product.service;
 
+import com.marketplace.product.dto.ProductCache;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
@@ -217,11 +218,17 @@ private void applyDiscount(Product product, ProductRequest request) {
     }
 
     @Transactional(readOnly = true)
+    public List<ProductResponse> searchProducts(
+        ProductSearchRequest request
+    ) {
+        return searchProductsCached(request).items();
+    }
+
     @Cacheable(
         value = "products",
         key = "'search:' + #request.query() + ':' + #request.categoryId() + ':' + #request.sellerId() + ':' + #request.minPrice() + ':' + #request.maxPrice() + ':' + #request.page() + ':' + #request.size()"
     )
-    public List<ProductResponse> searchProducts(
+    public ProductCache searchProductsCached(
         ProductSearchRequest request
     ) {
         Sort sort = Sort.by(Sort.Direction.DESC, request.getSortBy());
@@ -238,7 +245,7 @@ private void applyDiscount(Product product, ProductRequest request) {
             request.maxPrice(),
             pageRequest
         );
-        return toProductResponses(page.getContent());
+        return new ProductCache(toProductResponses(page.getContent()));
     }
 
     @Transactional(readOnly = true)
