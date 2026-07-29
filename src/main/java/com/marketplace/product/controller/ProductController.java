@@ -53,7 +53,7 @@ public class ProductController {
     public ResponseEntity<
         ApiResponse<PageResponse<ProductResponse>>
     > searchProducts(ProductSearchRequest request) {
-        PageResponse<ProductResponse> products = productService.searchProducts(
+        PageResponse<ProductResponse> products = productService.searchProductsPaged(
             request
         );
         return ResponseEntity.ok(ApiResponse.ok(products));

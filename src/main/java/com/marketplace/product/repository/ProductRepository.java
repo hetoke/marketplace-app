@@ -20,6 +20,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Product p SET p.stock = p.stock + :quantity WHERE p.id = :productId")
     int incrementStock(@Param("productId") UUID productId, @Param("quantity") int quantity);
+
+    @Modifying(flushAutomatically = true)
+    @Query("UPDATE Product p SET p.soldCount = p.soldCount + :quantity WHERE p.id = :productId")
+    int incrementSoldCount(@Param("productId") UUID productId, @Param("quantity") int quantity);
     Optional<Product> findBySlug(String slug);
     Page<Product> findBySellerId(UUID sellerId, Pageable pageable);
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
@@ -39,6 +43,20 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
             @Param("minPrice") java.math.BigDecimal minPrice,
             @Param("maxPrice") java.math.BigDecimal maxPrice,
             Pageable pageable);
+
+    @Query("SELECT COUNT(p) FROM Product p WHERE " +
+           "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR :query IS NULL) AND " +
+           "(p.category.id = :categoryId OR :categoryId IS NULL) AND " +
+           "(p.sellerId = :sellerId OR :sellerId IS NULL) AND " +
+           "(p.price >= :minPrice OR :minPrice IS NULL) AND " +
+           "(p.price <= :maxPrice OR :maxPrice IS NULL) AND " +
+           "p.active = true")
+    long countBySearchFilters(
+            @Param("query") String query,
+            @Param("categoryId") UUID categoryId,
+            @Param("sellerId") UUID sellerId,
+            @Param("minPrice") java.math.BigDecimal minPrice,
+            @Param("maxPrice") java.math.BigDecimal maxPrice);
 
     long countByActiveTrue();
 

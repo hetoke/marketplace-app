@@ -221,11 +221,10 @@ private void applyDiscount(Product product, ProductRequest request) {
         value = "products",
         key = "'search:' + #request.query() + ':' + #request.categoryId() + ':' + #request.sellerId() + ':' + #request.minPrice() + ':' + #request.maxPrice() + ':' + #request.page() + ':' + #request.size()"
     )
-    public PageResponse<ProductResponse> searchProducts(
+    public List<ProductResponse> searchProducts(
         ProductSearchRequest request
     ) {
         Sort sort = Sort.by(Sort.Direction.DESC, request.getSortBy());
-        //System.out.println(sort);
         PageRequest pageRequest = PageRequest.of(
             request.getPage(),
             request.getSize(),
@@ -239,13 +238,28 @@ private void applyDiscount(Product product, ProductRequest request) {
             request.maxPrice(),
             pageRequest
         );
-        var content = toProductResponses(page.getContent());
+        return toProductResponses(page.getContent());
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<ProductResponse> searchProductsPaged(
+        ProductSearchRequest request
+    ) {
+        List<ProductResponse> content = searchProducts(request);
+        long totalElements = productRepository.countBySearchFilters(
+            request.query(),
+            request.categoryId(),
+            request.sellerId(),
+            request.minPrice(),
+            request.maxPrice()
+        );
+        int totalPages = (int) Math.ceil((double) totalElements / request.getSize());
         return new PageResponse<>(
             content,
-            page.getNumber(),
-            page.getSize(),
-            page.getTotalElements(),
-            page.getTotalPages()
+            request.getPage(),
+            request.getSize(),
+            totalElements,
+            totalPages
         );
     }
 

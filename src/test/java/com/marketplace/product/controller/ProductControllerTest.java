@@ -234,7 +234,7 @@ class ProductControllerTest {
 		ProductResponse productResponse = createTestProductResponse();
 		PageResponse<ProductResponse> pageResponse = new PageResponse<>(
 				List.of(productResponse), 0, 20, 1, 1);
-		when(productService.searchProducts(any())).thenReturn(pageResponse);
+		when(productService.searchProductsPaged(any())).thenReturn(pageResponse);
 
 		mockMvc.perform(get("/api/v1/products"))
 				.andExpect(status().isOk())
@@ -246,7 +246,7 @@ class ProductControllerTest {
 	void searchProducts_withQueryParams_returns200() throws Exception {
 		PageResponse<ProductResponse> pageResponse = new PageResponse<>(
 				List.of(), 0, 10, 0, 0);
-		when(productService.searchProducts(any())).thenReturn(pageResponse);
+		when(productService.searchProductsPaged(any())).thenReturn(pageResponse);
 
 		mockMvc.perform(get("/api/v1/products")
 						.param("query", "phone")

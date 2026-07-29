@@ -56,6 +56,9 @@ class ProductServiceTest {
 	@Mock
 	private com.marketplace.product.service.DiscountService discountService;
 
+	@Mock
+	private com.marketplace.user.repository.UserRepository userRepository;
+
 	@InjectMocks
 	private ProductService productService;
 
@@ -338,8 +341,10 @@ class ProductServiceTest {
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
+		when(productRepository.countBySearchFilters("test", null, null, null, null))
+				.thenReturn(1L);
 
-		PageResponse<ProductResponse> response = productService.searchProducts(request);
+		PageResponse<ProductResponse> response = productService.searchProductsPaged(request);
 
 		assertThat(response.content()).hasSize(1);
 		assertThat(response.content().get(0).name()).isEqualTo("Test Product");
@@ -356,8 +361,10 @@ class ProductServiceTest {
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
+		when(productRepository.countBySearchFilters("nonexistent", null, null, null, null))
+				.thenReturn(0L);
 
-		PageResponse<ProductResponse> response = productService.searchProducts(request);
+		PageResponse<ProductResponse> response = productService.searchProductsPaged(request);
 
 		assertThat(response.content()).isEmpty();
 		assertThat(response.totalElements()).isEqualTo(0);
@@ -383,8 +390,10 @@ class ProductServiceTest {
 				PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))))
 				.thenReturn(page);
+		when(productRepository.countBySearchFilters(null, null, null, null, null))
+				.thenReturn(25L);
 
-		PageResponse<ProductResponse> response = productService.searchProducts(request);
+		PageResponse<ProductResponse> response = productService.searchProductsPaged(request);
 
 		assertThat(response.page()).isEqualTo(0);
 		assertThat(response.size()).isEqualTo(20);
@@ -405,8 +414,10 @@ class ProductServiceTest {
 				PageRequest.of(1, 5, org.springframework.data.domain.Sort.by(
 						org.springframework.data.domain.Sort.Direction.DESC, "price"))))
 				.thenReturn(page);
+		when(productRepository.countBySearchFilters(null, null, null, new BigDecimal("10"), new BigDecimal("100")))
+				.thenReturn(10L);
 
-		PageResponse<ProductResponse> response = productService.searchProducts(request);
+		PageResponse<ProductResponse> response = productService.searchProductsPaged(request);
 
 		assertThat(response.page()).isEqualTo(1);
 		assertThat(response.size()).isEqualTo(5);
