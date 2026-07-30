@@ -2,14 +2,17 @@ package com.marketplace.shared.config;
 
 import com.marketplace.product.model.Category;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductVariant;
 import com.marketplace.product.repository.CategoryRepository;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.repository.ProductVariantRepository;
 import com.marketplace.review.model.Review;
 import com.marketplace.review.repository.ReviewRepository;
 import com.marketplace.user.model.User;
 import com.marketplace.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +28,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final ReviewRepository reviewRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -32,12 +36,14 @@ public class DataSeeder implements CommandLineRunner {
         UserRepository userRepository,
         CategoryRepository categoryRepository,
         ProductRepository productRepository,
+        ProductVariantRepository productVariantRepository,
         ReviewRepository reviewRepository,
         PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.reviewRepository = reviewRepository;
         this.passwordEncoder = passwordEncoder;
     }
@@ -48,6 +54,7 @@ public class DataSeeder implements CommandLineRunner {
         seedCategories();
         seedSellersAndBuyer();
         seedProducts();
+        seedVariants();
         seedReviews();
     }
 
@@ -191,6 +198,61 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    private void seedVariants() {
+        addVariants("Cotton T-Shirt", List.of(
+            new VariantSeed("TSHIRT-BLK-S", new BigDecimal("150000.00"), 40, Map.of("Màu sắc", "Đen", "Cỡ", "S")),
+            new VariantSeed("TSHIRT-BLK-M", new BigDecimal("150000.00"), 60, Map.of("Màu sắc", "Đen", "Cỡ", "M")),
+            new VariantSeed("TSHIRT-BLK-L", new BigDecimal("150000.00"), 50, Map.of("Màu sắc", "Đen", "Cỡ", "L")),
+            new VariantSeed("TSHIRT-WHT-S", new BigDecimal("150000.00"), 35, Map.of("Màu sắc", "Trắng", "Cỡ", "S")),
+            new VariantSeed("TSHIRT-WHT-M", new BigDecimal("150000.00"), 45, Map.of("Màu sắc", "Trắng", "Cỡ", "M")),
+            new VariantSeed("TSHIRT-WHT-L", new BigDecimal("150000.00"), 30, Map.of("Màu sắc", "Trắng", "Cỡ", "L"))
+        ));
+        addVariants("Denim Jacket", List.of(
+            new VariantSeed("DNJKT-BLU-S", new BigDecimal("450000.00"), 20, Map.of("Cỡ", "S")),
+            new VariantSeed("DNJKT-BLU-M", new BigDecimal("450000.00"), 25, Map.of("Cỡ", "M")),
+            new VariantSeed("DNJKT-BLU-L", new BigDecimal("450000.00"), 20, Map.of("Cỡ", "L")),
+            new VariantSeed("DNJKT-BLU-XL", new BigDecimal("470000.00"), 15, Map.of("Cỡ", "XL"))
+        ));
+        addVariants("Matte Lipstick", List.of(
+            new VariantSeed("LSTCK-RED-01", new BigDecimal("180000.00"), 45, Map.of("Màu sắc", "Đỏ")),
+            new VariantSeed("LSTCK-NUD-02", new BigDecimal("180000.00"), 40, Map.of("Màu sắc", "Nude")),
+            new VariantSeed("LSTCK-PNK-03", new BigDecimal("180000.00"), 35, Map.of("Màu sắc", "Hồng"))
+        ));
+        addVariants("4K Action Camera", List.of(
+            new VariantSeed("CAM-32G", new BigDecimal("2490000.00"), 15, Map.of("Bộ nhớ", "32GB")),
+            new VariantSeed("CAM-64G", new BigDecimal("2790000.00"), 10, Map.of("Bộ nhớ", "64GB")),
+            new VariantSeed("CAM-128G", new BigDecimal("3090000.00"), 5, Map.of("Bộ nhớ", "128GB"))
+        ));
+    }
+
+    private void addVariants(String productName, List<VariantSeed> variants) {
+        productRepository.findBySlug(toSlug(productName)).ifPresent(product -> {
+            List<ProductVariant> existing = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
+            if (!existing.isEmpty()) {
+                log.info("Variants already exist for: {}", productName);
+                return;
+            }
+
+            int order = 0;
+            for (VariantSeed vs : variants) {
+                ProductVariant variant = new ProductVariant(
+                    product, vs.sku(), vs.price(), vs.stock(),
+                    vs.attributes(),
+                    order++
+                );
+                productVariantRepository.save(variant);
+            }
+
+            int totalStock = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId())
+                .stream().mapToInt(ProductVariant::getStock).sum();
+            product.setStock(totalStock);
+            product.setPrice(productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId())
+                .getFirst().getPrice());
+            productRepository.save(product);
+            log.info("Seeded {} variants for: {} (aggregate stock={})", variants.size(), productName, totalStock);
+        });
+    }
+
     private void seedReviews() {
         List<User> buyers = userRepository.findAll().stream()
                 .filter(u -> u.getRole() == User.Role.BUYER)
@@ -256,4 +318,6 @@ public class DataSeeder implements CommandLineRunner {
         int stock,
         int soldCount
     ) {}
+
+    private record VariantSeed(String sku, BigDecimal price, int stock, Map<String, String> attributes) {}
 }
