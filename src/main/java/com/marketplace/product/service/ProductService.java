@@ -4,14 +4,18 @@ import com.marketplace.product.dto.ProductCache;
 import com.marketplace.product.dto.ProductRequest;
 import com.marketplace.product.dto.ProductResponse;
 import com.marketplace.product.dto.ProductSearchRequest;
+import com.marketplace.product.dto.ProductVariantRequest;
 import com.marketplace.product.model.Category;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.model.ProductImage;
+import com.marketplace.product.model.ProductVariant;
 import com.marketplace.product.repository.CategoryRepository;
 import com.marketplace.product.repository.ProductImageRepository;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.repository.ProductVariantRepository;
 import com.marketplace.shared.dto.PageResponse;
 import com.marketplace.shared.exception.AccessDeniedException;
+import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.upload.model.EntityType;
 import com.marketplace.upload.repository.ImageRepository;
@@ -20,6 +24,7 @@ import com.marketplace.user.model.User;
 import com.marketplace.user.repository.UserRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,6 +43,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductImageRepository productImageRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final ImageRepository imageRepository;
     private final ImageService imageService;
     private final DiscountService discountService;
@@ -47,6 +53,7 @@ public class ProductService {
         ProductRepository productRepository,
         CategoryRepository categoryRepository,
         ProductImageRepository productImageRepository,
+        ProductVariantRepository productVariantRepository,
         ImageRepository imageRepository,
         ImageService imageService,
         DiscountService discountService,
@@ -55,6 +62,7 @@ public class ProductService {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productImageRepository = productImageRepository;
+        this.productVariantRepository = productVariantRepository;
         this.imageRepository = imageRepository;
         this.imageService = imageService;
         this.discountService = discountService;
@@ -108,9 +116,34 @@ private void applyDiscount(Product product, ProductRequest request) {
         product.setName(request.name());
         product.setSlug(slug);
         product.setDescription(request.description());
-        product.setPrice(request.price());
-        product.setStock(request.stock());
         applyDiscount(product, request);
+
+        List<ProductVariantRequest> variantRequests = request.variants();
+        boolean hasVariants = variantRequests != null && !variantRequests.isEmpty();
+
+        if (hasVariants) {
+            List<ProductVariant> variants = new ArrayList<>();
+            int totalStock = 0;
+            for (ProductVariantRequest vr : variantRequests) {
+                if (productVariantRepository.existsBySku(vr.sku())) {
+                    throw new BusinessException("SKU '" + vr.sku() + "' already exists");
+                }
+                ProductVariant variant = new ProductVariant(
+                    product, vr.sku(), vr.price(), vr.stock(),
+                    vr.attributes() != null ? vr.attributes() : Map.of(),
+                    vr.sortOrder() != null ? vr.sortOrder() : 0
+                );
+                variants.add(variant);
+                totalStock += vr.stock();
+            }
+            product.setVariants(variants);
+            product.setStock(totalStock);
+            product.setPrice(variantRequests.get(0).price());
+        } else {
+            product.setPrice(request.price());
+            product.setStock(request.stock());
+        }
+
         productRepository.save(product);
         return toResponse(product, List.of());
     }
@@ -144,9 +177,39 @@ private void applyDiscount(Product product, ProductRequest request) {
         product.setCategory(category);
         product.setName(request.name());
         product.setDescription(request.description());
-        product.setPrice(request.price());
-        product.setStock(request.stock());
         applyDiscount(product, request);
+
+        List<ProductVariantRequest> variantRequests = request.variants();
+        boolean hasVariants = variantRequests != null && !variantRequests.isEmpty();
+
+        if (hasVariants) {
+            List<ProductVariant> existingVariants = productVariantRepository.findByProductIdOrderBySortOrderAsc(productId);
+            for (ProductVariant ev : existingVariants) {
+                productVariantRepository.delete(ev);
+            }
+
+            List<ProductVariant> variants = new ArrayList<>();
+            int totalStock = 0;
+            for (ProductVariantRequest vr : variantRequests) {
+                if (productVariantRepository.existsBySku(vr.sku())) {
+                    throw new BusinessException("SKU '" + vr.sku() + "' already exists");
+                }
+                ProductVariant variant = new ProductVariant(
+                    product, vr.sku(), vr.price(), vr.stock(),
+                    vr.attributes() != null ? vr.attributes() : Map.of(),
+                    vr.sortOrder() != null ? vr.sortOrder() : 0
+                );
+                variants.add(variant);
+                totalStock += vr.stock();
+            }
+            product.setVariants(variants);
+            product.setStock(totalStock);
+            product.setPrice(variantRequests.get(0).price());
+        } else {
+            product.setPrice(request.price());
+            product.setStock(request.stock());
+        }
+
         product.setUpdatedAt(Instant.now());
         productRepository.save(product);
         return toResponse(product, List.of());

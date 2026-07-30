@@ -64,7 +64,10 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     long countByCategoryId(UUID categoryId);
 
-    List<Product> findByStockLessThan(int threshold);
+    List<Product> findByStockIsNull();
+
+    @Query("SELECT p FROM Product p WHERE p.stock IS NOT NULL AND p.stock < :threshold")
+    List<Product> findByStockLessThan(@Param("threshold") int threshold);
 
     @Query("SELECT p FROM Product p WHERE " +
            "(LOWER(p.name) LIKE LOWER(CONCAT('%', :query, '%')) OR :query IS NULL) AND " +

@@ -1,16 +1,22 @@
 package com.marketplace.product.model;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -40,9 +46,9 @@ public class Product {
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 
-    @Column(nullable = false)
     private Integer stock = 0;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "discount_type", length = 20)
     private DiscountType discountType;
 
@@ -61,6 +67,9 @@ public class Product {
     @Column(name = "review_count", nullable = false)
     private Integer reviewCount = 0;
 
+    @Column(name = "sold_count", nullable = false)
+    private Integer soldCount = 0;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -73,6 +82,9 @@ public class Product {
     @Version
     @Column(nullable = false)
     private Integer version;
+
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductVariant> variants = new ArrayList<>();
 
     public Product() {}
 
@@ -178,6 +190,9 @@ public class Product {
     public Integer getReviewCount() { return reviewCount; }
     public void setReviewCount(Integer reviewCount) { this.reviewCount = reviewCount; }
 
+    public Integer getSoldCount() { return soldCount; }
+    public void setSoldCount(Integer soldCount) { this.soldCount = soldCount; }
+
     public boolean isActive() {
         return active;
     }
@@ -208,5 +223,17 @@ public class Product {
 
     public void setVersion(Integer version) {
         this.version = version;
+    }
+
+    public List<ProductVariant> getVariants() {
+        return variants;
+    }
+
+    public void setVariants(List<ProductVariant> variants) {
+        this.variants = variants;
+    }
+
+    public boolean hasVariants() {
+        return variants != null && !variants.isEmpty();
     }
 }
