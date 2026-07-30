@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@lombok.Builder
 public record ReviewResponse(
     UUID id,
     UUID productId,
@@ -27,18 +28,18 @@ public record ReviewResponse(
     }
 
     public static ReviewResponse from(Review review, String buyerName, Map<String, String> variantAttributes) {
-        return new ReviewResponse(
-            review.getId(),
-            review.getProductId(),
-            review.getBuyerId(),
-            buyerName,
-            review.getRating(),
-            review.getComment(),
-            review.isVerifiedPurchase(),
-            review.getVariantId(),
-            variantAttributes,
-            review.getCreatedAt(),
-            review.getUpdatedAt()
-        );
+        return ReviewResponse.builder()
+            .id(review.getId())
+            .productId(review.getProductId())
+            .buyerId(review.getBuyerId())
+            .buyerName(buyerName)
+            .rating(review.getRating())
+            .comment(review.getComment())
+            .verifiedPurchase(review.isVerifiedPurchase())
+            .variantId(review.getVariantId())
+            .variantAttributes(variantAttributes)
+            .createdAt(review.getCreatedAt())
+            .updatedAt(review.getUpdatedAt())
+            .build();
     }
 }

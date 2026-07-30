@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+@lombok.Builder
 public record ProductVariantResponse(
         String id,
         String productId,
@@ -18,16 +19,16 @@ public record ProductVariantResponse(
         Instant createdAt
 ) {
     public static ProductVariantResponse from(ProductVariant variant) {
-        return new ProductVariantResponse(
-                variant.getId().toString(),
-                variant.getProduct().getId().toString(),
-                variant.getSku(),
-                variant.getPrice(),
-                variant.getStock(),
-                variant.getAttributes(),
-                variant.isActive(),
-                variant.getSortOrder(),
-                variant.getCreatedAt()
-        );
+        return ProductVariantResponse.builder()
+                .id(variant.getId().toString())
+                .productId(variant.getProduct().getId().toString())
+                .sku(variant.getSku())
+                .price(variant.getPrice())
+                .stock(variant.getStock())
+                .attributes(variant.getAttributes())
+                .isActive(variant.isActive())
+                .sortOrder(variant.getSortOrder())
+                .createdAt(variant.getCreatedAt())
+                .build();
     }
 }

@@ -5,6 +5,7 @@ import com.marketplace.upload.model.Image;
 import java.time.Instant;
 import java.util.UUID;
 
+@lombok.Builder
 public record ImageResponse(
         String id,
         String fileUrl,
@@ -17,16 +18,16 @@ public record ImageResponse(
         Instant createdAt
 ) {
     public static ImageResponse from(Image image) {
-        return new ImageResponse(
-                image.getId().toString(),
-                image.getFileUrl(),
-                image.getFileName(),
-                image.getFileSize(),
-                image.getContentType(),
-                image.getEntityType(),
-                image.getEntityId().toString(),
-                image.getUploadedBy().toString(),
-                image.getCreatedAt()
-        );
+        return ImageResponse.builder()
+                .id(image.getId().toString())
+                .fileUrl(image.getFileUrl())
+                .fileName(image.getFileName())
+                .fileSize(image.getFileSize())
+                .contentType(image.getContentType())
+                .entityType(image.getEntityType())
+                .entityId(image.getEntityId().toString())
+                .uploadedBy(image.getUploadedBy().toString())
+                .createdAt(image.getCreatedAt())
+                .build();
     }
 }

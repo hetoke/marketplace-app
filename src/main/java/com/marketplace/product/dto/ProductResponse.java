@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@lombok.Builder
 public record ProductResponse(
         String id,
         String sellerId,
@@ -54,29 +55,29 @@ public record ProductResponse(
                 ? product.getVariants().stream().map(ProductVariantResponse::from).toList()
                 : List.of();
 
-        return new ProductResponse(
-                product.getId().toString(),
-                product.getSellerId().toString(),
-                sellerName,
-                CategoryResponse.from(product.getCategory()),
-                product.getName(),
-                product.getSlug(),
-                product.getDescription(),
-                product.getPrice(),
-                product.getStock(),
-                product.getAverageRating(),
-                product.getReviewCount(),
-                product.getSoldCount(),
-                product.isActive(),
-                images.stream().map(ProductImageResponse::from).toList(),
-                product.getCreatedAt(),
-                product.getPrice(),
-                effectivePrice,
-                discountActive,
-                product.getDiscountType(),
-                product.getDiscountValue(),
-                timeLeft,
-                variants
-        );
+        return ProductResponse.builder()
+                .id(product.getId().toString())
+                .sellerId(product.getSellerId().toString())
+                .sellerName(sellerName)
+                .category(CategoryResponse.from(product.getCategory()))
+                .name(product.getName())
+                .slug(product.getSlug())
+                .description(product.getDescription())
+                .price(product.getPrice())
+                .stock(product.getStock())
+                .averageRating(product.getAverageRating())
+                .reviewCount(product.getReviewCount())
+                .soldCount(product.getSoldCount())
+                .isActive(product.isActive())
+                .images(images.stream().map(ProductImageResponse::from).toList())
+                .createdAt(product.getCreatedAt())
+                .originalPrice(product.getPrice())
+                .discountPrice(effectivePrice)
+                .discountActive(discountActive)
+                .discountType(product.getDiscountType())
+                .discountValue(product.getDiscountValue())
+                .timeLeft(timeLeft)
+                .variants(variants)
+                .build();
     }
 }

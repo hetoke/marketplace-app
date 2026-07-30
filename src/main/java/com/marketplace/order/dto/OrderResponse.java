@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 
+@lombok.Builder
 public record OrderResponse(
         String id,
         String status,
@@ -32,26 +33,26 @@ public record OrderResponse(
     }
 
     public static OrderResponse from(Order order, List<OrderItemResponse> items, String paymentId) {
-        return new OrderResponse(
-                order.getId().toString(),
-                order.getStatus().name(),
-                order.getPaymentStatus().name(),
-                order.getTotalAmount(),
-                order.getCurrency(),
-                order.getShippingAddress(),
-                order.getPlacedAt(),
-                order.getDeliveredAt(),
-                order.getCancelledAt(),
-                order.getCancelReason(),
-                order.isReturnRequested(),
-                order.getReturnReason(),
-                order.getReturnRequestedAt(),
-                items,
-                items.stream().mapToInt(OrderItemResponse::quantity).sum(),
-                order.getCreatedAt(),
-                paymentId,
-                order.getDiscountAmount(),
-                order.getOriginalAmount()
-        );
+        return OrderResponse.builder()
+                .id(order.getId().toString())
+                .status(order.getStatus().name())
+                .paymentStatus(order.getPaymentStatus().name())
+                .totalAmount(order.getTotalAmount())
+                .currency(order.getCurrency())
+                .shippingAddress(order.getShippingAddress())
+                .placedAt(order.getPlacedAt())
+                .deliveredAt(order.getDeliveredAt())
+                .cancelledAt(order.getCancelledAt())
+                .cancelReason(order.getCancelReason())
+                .returnRequested(order.isReturnRequested())
+                .returnReason(order.getReturnReason())
+                .returnRequestedAt(order.getReturnRequestedAt())
+                .items(items)
+                .itemCount(items.stream().mapToInt(OrderItemResponse::quantity).sum())
+                .createdAt(order.getCreatedAt())
+                .paymentId(paymentId)
+                .discountAmount(order.getDiscountAmount())
+                .originalAmount(order.getOriginalAmount())
+                .build();
     }
 }
