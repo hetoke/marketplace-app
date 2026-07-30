@@ -278,6 +278,7 @@ public class DataSeeder implements CommandLineRunner {
         List<Product> products = productRepository.findAll();
         int reviewIndex = 0;
         for (Product product : products) {
+            List<ProductVariant> variants = productVariantRepository.findByProductIdOrderBySortOrderAsc(product.getId());
             for (User buyer : buyers) {
                 if (reviewRepository.existsByProductIdAndBuyerId(product.getId(), buyer.getId())) {
                     continue;
@@ -285,6 +286,10 @@ public class DataSeeder implements CommandLineRunner {
                 int rating = ThreadLocalRandom.current().nextInt(3, 6);
                 String comment = reviewTexts[reviewIndex % reviewTexts.length];
                 Review review = new Review(product.getId(), buyer.getId(), rating, comment, true);
+                if (!variants.isEmpty()) {
+                    ProductVariant randomVariant = variants.get(ThreadLocalRandom.current().nextInt(variants.size()));
+                    review.setVariantId(randomVariant.getId());
+                }
                 reviewRepository.save(review);
                 reviewIndex++;
             }
