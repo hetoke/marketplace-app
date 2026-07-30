@@ -125,11 +125,12 @@ private void applyDiscount(Product product, ProductRequest request) {
             List<ProductVariant> variants = new ArrayList<>();
             int totalStock = 0;
             for (ProductVariantRequest vr : variantRequests) {
-                if (productVariantRepository.existsBySku(vr.sku())) {
-                    throw new BusinessException("SKU '" + vr.sku() + "' already exists");
+                String sku = generateSku(product, vr.attributes());
+                while (productVariantRepository.existsBySku(sku)) {
+                    sku = generateSku(product, vr.attributes()) + "-" + UUID.randomUUID().toString().substring(0, 6);
                 }
                 ProductVariant variant = new ProductVariant(
-                    product, vr.sku(), vr.price(), vr.stock(),
+                    product, sku, vr.price(), vr.stock(),
                     vr.attributes() != null ? vr.attributes() : Map.of(),
                     vr.sortOrder() != null ? vr.sortOrder() : 0
                 );
@@ -191,11 +192,12 @@ private void applyDiscount(Product product, ProductRequest request) {
             List<ProductVariant> variants = new ArrayList<>();
             int totalStock = 0;
             for (ProductVariantRequest vr : variantRequests) {
-                if (productVariantRepository.existsBySku(vr.sku())) {
-                    throw new BusinessException("SKU '" + vr.sku() + "' already exists");
+                String sku = generateSku(product, vr.attributes());
+                while (productVariantRepository.existsBySku(sku)) {
+                    sku = generateSku(product, vr.attributes()) + "-" + UUID.randomUUID().toString().substring(0, 6);
                 }
                 ProductVariant variant = new ProductVariant(
-                    product, vr.sku(), vr.price(), vr.stock(),
+                    product, sku, vr.price(), vr.stock(),
                     vr.attributes() != null ? vr.attributes() : Map.of(),
                     vr.sortOrder() != null ? vr.sortOrder() : 0
                 );
@@ -434,5 +436,20 @@ return products
             .replaceAll("\\s+", "-")
             .replaceAll("-+", "-")
             .replaceAll("^-|-$", "");
+    }
+
+    private String generateSku(Product product, Map<String, String> attributes) {
+        String base = product.getSlug();
+        if (attributes != null && !attributes.isEmpty()) {
+            String attrPart = attributes.values().stream()
+                    .map(v -> v.toLowerCase()
+                            .replaceAll("[^a-z0-9\\s-]", "")
+                            .replaceAll("\\s+", "-")
+                            .replaceAll("-+", "-")
+                            .replaceAll("^-|-$", ""))
+                    .collect(Collectors.joining("-"));
+            return base + "-" + attrPart;
+        }
+        return base;
     }
 }

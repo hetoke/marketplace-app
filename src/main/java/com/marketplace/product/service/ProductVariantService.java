@@ -11,7 +11,9 @@ import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -49,13 +51,14 @@ public class ProductVariantService {
             throw new AccessDeniedException("You can only add variants to your own products");
         }
 
-        if (productVariantRepository.existsBySku(request.sku())) {
-            throw new BusinessException("SKU '" + request.sku() + "' already exists");
+        String sku = generateSku(product, request.attributes());
+        while (productVariantRepository.existsBySku(sku)) {
+            sku = generateSku(product, request.attributes()) + "-" + UUID.randomUUID().toString().substring(0, 6);
         }
 
         ProductVariant variant = new ProductVariant(
                 product,
-                request.sku(),
+                sku,
                 request.price(),
                 request.stock(),
                 request.attributes() != null ? request.attributes() : java.util.Map.of(),
@@ -86,11 +89,6 @@ public class ProductVariantService {
             throw new AccessDeniedException("Variant does not belong to this product");
         }
 
-        if (!variant.getSku().equals(request.sku()) && productVariantRepository.existsBySku(request.sku())) {
-            throw new BusinessException("SKU '" + request.sku() + "' already exists");
-        }
-
-        variant.setSku(request.sku());
         variant.setPrice(request.price());
         variant.setStock(request.stock());
         if (request.attributes() != null) {
@@ -138,5 +136,20 @@ public class ProductVariantService {
         }
         product.setUpdatedAt(Instant.now());
         productRepository.save(product);
+    }
+
+    private String generateSku(Product product, Map<String, String> attributes) {
+        String base = product.getSlug();
+        if (attributes != null && !attributes.isEmpty()) {
+            String attrPart = attributes.values().stream()
+                    .map(v -> v.toLowerCase()
+                            .replaceAll("[^a-z0-9\\s-]", "")
+                            .replaceAll("\\s+", "-")
+                            .replaceAll("-+", "-")
+                            .replaceAll("^-|-$", ""))
+                    .collect(Collectors.joining("-"));
+            return base + "-" + attrPart;
+        }
+        return base;
     }
 }

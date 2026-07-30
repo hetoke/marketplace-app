@@ -8,7 +8,6 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 public record ProductVariantRequest(
-        @NotBlank String sku,
         @NotNull @Positive BigDecimal price,
         @NotNull @Min(0) Integer stock,
         Map<String, String> attributes,
