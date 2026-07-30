@@ -61,7 +61,9 @@ public class ReviewService {
         Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product", "id", request.productId()));
 
-        boolean verifiedPurchase = hasPurchasedProduct(buyerId, request.productId());
+        UUID purchasedVariantId = findPurchasedVariantId(buyerId, request.productId());
+        boolean verifiedPurchase = purchasedVariantId != null;
+        UUID variantId = request.variantId() != null ? request.variantId() : purchasedVariantId;
 
         Review review = reviewRepository.findByProductIdAndBuyerId(request.productId(), buyerId)
                 .orElse(null);
@@ -69,7 +71,7 @@ public class ReviewService {
         if (review != null) {
             review.setRating(request.rating());
             review.setComment(request.comment());
-            review.setVariantId(request.variantId());
+            if (variantId != null) review.setVariantId(variantId);
             review.setUpdatedAt(Instant.now());
         } else {
             review = new Review(
@@ -79,7 +81,7 @@ public class ReviewService {
                     request.comment(),
                     verifiedPurchase
             );
-            review.setVariantId(request.variantId());
+            review.setVariantId(variantId);
         }
         review = reviewRepository.save(review);
 
@@ -177,19 +179,19 @@ public class ReviewService {
         return reviewRepository.countByProductId(productId);
     }
 
-    private boolean hasPurchasedProduct(UUID buyerId, UUID productId) {
+    private UUID findPurchasedVariantId(UUID buyerId, UUID productId) {
         List<Order> orders = orderRepository.findByBuyerIdOrderByCreatedAtDesc(buyerId);
         for (Order order : orders) {
             if (order.getPaymentStatus() == Order.PaymentStatus.PAID) {
                 List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
                 for (OrderItem item : items) {
                     if (item.getProductId().equals(productId)) {
-                        return true;
+                        return item.getVariantId();
                     }
                 }
             }
         }
-        return false;
+        return null;
     }
 
     private void recalculateProductRating(Product product) {
