@@ -15,7 +15,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "cart_items", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"cart_id", "product_id"})
+        @UniqueConstraint(columnNames = {"cart_id", "product_id", "variant_id"})
 })
 public class CartItem {
 
@@ -29,6 +29,12 @@ public class CartItem {
 
     @Column(name = "product_id", nullable = false)
     private UUID productId;
+
+    @Column(name = "variant_id")
+    private UUID variantId;
+
+    @Column(name = "sku")
+    private String sku;
 
     @Column(name = "quantity", nullable = false)
     private Integer quantity = 1;
@@ -51,12 +57,25 @@ public class CartItem {
         this.unitPrice = unitPrice;
     }
 
+    public CartItem(Cart cart, UUID productId, UUID variantId, String sku, Integer quantity, BigDecimal unitPrice) {
+        this.cart = cart;
+        this.productId = productId;
+        this.variantId = variantId;
+        this.sku = sku;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public Cart getCart() { return cart; }
     public void setCart(Cart cart) { this.cart = cart; }
     public UUID getProductId() { return productId; }
     public void setProductId(UUID productId) { this.productId = productId; }
+    public UUID getVariantId() { return variantId; }
+    public void setVariantId(UUID variantId) { this.variantId = variantId; }
+    public String getSku() { return sku; }
+    public void setSku(String sku) { this.sku = sku; }
     public Integer getQuantity() { return quantity; }
     public void setQuantity(Integer quantity) { this.quantity = quantity; }
     public BigDecimal getUnitPrice() { return unitPrice; }

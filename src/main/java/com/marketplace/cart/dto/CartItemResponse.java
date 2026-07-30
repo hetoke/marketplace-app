@@ -7,6 +7,8 @@ import java.util.UUID;
 public record CartItemResponse(
         String id,
         String productId,
+        String variantId,
+        String sku,
         String productName,
         Integer quantity,
         BigDecimal unitPrice,
@@ -18,6 +20,8 @@ public record CartItemResponse(
         return new CartItemResponse(
                 item.getId().toString(),
                 item.getProductId().toString(),
+                item.getVariantId() != null ? item.getVariantId().toString() : null,
+                item.getSku(),
                 productName,
                 item.getQuantity(),
                 item.getUnitPrice(),

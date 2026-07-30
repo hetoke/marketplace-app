@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 public record OrderItemResponse(
         String id,
         String productId,
+        String variantId,
+        String sku,
         String productName,
         String productImageUrl,
         BigDecimal unitPrice,
@@ -17,6 +19,8 @@ public record OrderItemResponse(
         return new OrderItemResponse(
                 item.getId().toString(),
                 item.getProductId().toString(),
+                item.getVariantId() != null ? item.getVariantId().toString() : null,
+                item.getSku(),
                 item.getProductName(),
                 item.getProductImageUrl(),
                 item.getUnitPrice(),

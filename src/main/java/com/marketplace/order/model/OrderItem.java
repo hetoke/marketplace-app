@@ -27,6 +27,12 @@ public class OrderItem {
     @Column(name = "product_id", nullable = false)
     private UUID productId;
 
+    @Column(name = "variant_id")
+    private UUID variantId;
+
+    @Column(name = "sku")
+    private String sku;
+
     @Column(name = "product_name", nullable = false)
     private String productName;
 
@@ -61,12 +67,29 @@ public class OrderItem {
         this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
     }
 
+    public OrderItem(Order order, UUID productId, UUID variantId, String sku, String productName,
+                     String productImageUrl, BigDecimal unitPrice, Integer quantity) {
+        this.order = order;
+        this.productId = productId;
+        this.variantId = variantId;
+        this.sku = sku;
+        this.productName = productName;
+        this.productImageUrl = productImageUrl;
+        this.unitPrice = unitPrice;
+        this.quantity = quantity;
+        this.totalPrice = unitPrice.multiply(BigDecimal.valueOf(quantity));
+    }
+
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
     public Order getOrder() { return order; }
     public void setOrder(Order order) { this.order = order; }
     public UUID getProductId() { return productId; }
     public void setProductId(UUID productId) { this.productId = productId; }
+    public UUID getVariantId() { return variantId; }
+    public void setVariantId(UUID variantId) { this.variantId = variantId; }
+    public String getSku() { return sku; }
+    public void setSku(String sku) { this.sku = sku; }
     public String getProductName() { return productName; }
     public void setProductName(String productName) { this.productName = productName; }
     public String getProductImageUrl() { return productImageUrl; }

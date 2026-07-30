@@ -44,7 +44,7 @@ public class CartController {
             @PathVariable UUID productId,
             @Valid @RequestBody AddToCartRequest request) {
         String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-        CartResponse cart = cartService.addItem(userId, productId, request.quantity());
+        CartResponse cart = cartService.addItem(userId, productId, request.variantId(), request.quantity());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Item added to cart", cart));
     }

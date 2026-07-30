@@ -20,7 +20,9 @@ import com.marketplace.order.repository.OrderRepository;
 import com.marketplace.payment.model.Payment;
 import com.marketplace.payment.repository.PaymentRepository;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductVariant;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.repository.ProductVariantRepository;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
@@ -46,6 +48,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final NotificationService notificationService;
     private final PaymentRepository paymentRepository;
 
@@ -55,6 +58,7 @@ public class OrderService {
         CartRepository cartRepository,
         CartItemRepository cartItemRepository,
         ProductRepository productRepository,
+        ProductVariantRepository productVariantRepository,
         NotificationService notificationService,
         PaymentRepository paymentRepository
     ) {
@@ -63,6 +67,7 @@ public class OrderService {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.notificationService = notificationService;
         this.paymentRepository = paymentRepository;
     }
@@ -120,21 +125,41 @@ public class OrderService {
                 );
             }
 
-            if (product.getStock() < cartItem.getQuantity()) {
-                throw new BusinessException(
-                    "Insufficient stock for '" +
-                        product.getName() +
-                        "'. Available: " +
-                        product.getStock() +
-                        ", requested: " +
-                        cartItem.getQuantity()
-                );
+            ProductVariant variant = null;
+            if (cartItem.getVariantId() != null) {
+                variant = productVariantRepository.findById(cartItem.getVariantId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Product variant", "id", cartItem.getVariantId()));
+                if (!variant.isActive()) {
+                    throw new BusinessException("Variant is no longer available");
+                }
+                if (variant.getStock() < cartItem.getQuantity()) {
+                    throw new BusinessException(
+                        "Insufficient stock for '" + product.getName() + "'. Available: " +
+                            variant.getStock() + ", requested: " + cartItem.getQuantity()
+                    );
+                }
+            } else {
+                if (product.getStock() != null && product.getStock() < cartItem.getQuantity()) {
+                    throw new BusinessException(
+                        "Insufficient stock for '" + product.getName() + "'. Available: " +
+                            product.getStock() + ", requested: " + cartItem.getQuantity()
+                    );
+                }
+            }
+
+            String orderProductName = product.getName();
+            if (variant != null) {
+                for (var entry : variant.getAttributes().entrySet()) {
+                    orderProductName += " - " + entry.getKey() + ": " + entry.getValue();
+                }
             }
 
             OrderItem orderItem = new OrderItem(
                 order,
                 product.getId(),
-                product.getName(),
+                cartItem.getVariantId(),
+                cartItem.getSku(),
+                orderProductName,
                 null,
                 cartItem.getUnitPrice(),
                 cartItem.getQuantity()
@@ -174,16 +199,28 @@ public class OrderService {
             Product product = productRepository
                 .findById(cartItem.getProductId())
                 .orElse(null);
-            if (product != null && product.getStock() <= 5) {
+            if (product == null) continue;
+
+            if (cartItem.getVariantId() != null) {
+                ProductVariant variant = productVariantRepository.findById(cartItem.getVariantId()).orElse(null);
+                if (variant != null && variant.getStock() <= 5) {
+                    notificationService.createNotification(
+                        product.getSellerId(),
+                        NotificationType.LOW_STOCK,
+                        "Low Stock Alert",
+                        "Variant '" + variant.getSku() + "' of '" + product.getName() +
+                            "' has only " + variant.getStock() + " items remaining.",
+                        product.getId(),
+                        "PRODUCT"
+                    );
+                }
+            } else if (product.getStock() != null && product.getStock() <= 5) {
                 notificationService.createNotification(
                     product.getSellerId(),
                     NotificationType.LOW_STOCK,
                     "Low Stock Alert",
-                    "Product '" +
-                        product.getName() +
-                        "' has only " +
-                        product.getStock() +
-                        " items remaining.",
+                    "Product '" + product.getName() +
+                        "' has only " + product.getStock() + " items remaining.",
                     product.getId(),
                     "PRODUCT"
                 );
@@ -291,6 +328,10 @@ public class OrderService {
         order.setStatus(newStatus);
         if (newStatus == OrderStatus.DELIVERED) {
             order.setDeliveredAt(Instant.now());
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            for (OrderItem item : items) {
+                productRepository.incrementSoldCount(item.getProductId(), item.getQuantity());
+            }
         }
         order.setUpdatedAt(Instant.now());
         order = orderRepository.save(order);
@@ -382,10 +423,17 @@ public class OrderService {
             order.getId()
         );
         for (OrderItem orderItem : orderItems) {
-            productRepository.incrementStock(
-                orderItem.getProductId(),
-                orderItem.getQuantity()
-            );
+            if (orderItem.getVariantId() != null) {
+                productVariantRepository.incrementStock(
+                    orderItem.getVariantId(),
+                    orderItem.getQuantity()
+                );
+            } else {
+                productRepository.incrementStock(
+                    orderItem.getProductId(),
+                    orderItem.getQuantity()
+                );
+            }
         }
 
         order = orderRepository.save(order);
@@ -526,6 +574,10 @@ public class OrderService {
         order.setStatus(newStatus);
         if (newStatus == OrderStatus.DELIVERED) {
             order.setDeliveredAt(Instant.now());
+            List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
+            for (OrderItem item : items) {
+                productRepository.incrementSoldCount(item.getProductId(), item.getQuantity());
+            }
         }
         order.setUpdatedAt(Instant.now());
         order = orderRepository.save(order);

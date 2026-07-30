@@ -7,7 +7,9 @@ import com.marketplace.cart.model.CartItem;
 import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductVariant;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.repository.ProductVariantRepository;
 import com.marketplace.product.service.DiscountService;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
@@ -33,6 +35,7 @@ public class CartService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final DiscountService discountService;
 
     @PersistenceContext
@@ -41,10 +44,12 @@ public class CartService {
     public CartService(CartRepository cartRepository,
                        CartItemRepository cartItemRepository,
                        ProductRepository productRepository,
+                       ProductVariantRepository productVariantRepository,
                        DiscountService discountService) {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.discountService = discountService;
     }
 
@@ -57,10 +62,15 @@ public class CartService {
 
     @Transactional
     public CartResponse addItem(String userId, UUID productId, int quantity) {
+        return addItem(userId, productId, null, quantity);
+    }
+
+    @Transactional
+    public CartResponse addItem(String userId, UUID productId, UUID variantId, int quantity) {
         UUID userUuid = UUID.fromString(userId);
         for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
             try {
-                return doAddItem(userUuid, productId, quantity);
+                return doAddItem(userUuid, productId, variantId, quantity);
             } catch (ObjectOptimisticLockingFailureException ex) {
                 log.warn("Optimistic lock on addItem (attempt {}/{}), retrying", attempt + 1, MAX_RETRIES);
                 entityManager.clear();
@@ -69,7 +79,7 @@ public class CartService {
         throw new BusinessException("Cart is being updated by another request. Please try again.");
     }
 
-    private CartResponse doAddItem(UUID userUuid, UUID productId, int quantity) {
+    private CartResponse doAddItem(UUID userUuid, UUID productId, UUID variantId, int quantity) {
         Cart cart = getOrCreateActiveCart(userUuid);
 
         Product product = productRepository.findById(productId)
@@ -79,34 +89,71 @@ public class CartService {
             throw new BusinessException("Product is not available");
         }
 
-        if (product.getStock() < quantity) {
-            throw new BusinessException("Insufficient stock. Available: " + product.getStock());
+        ProductVariant variant = null;
+        if (variantId != null) {
+            variant = productVariantRepository.findById(variantId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product variant", "id", variantId));
+            if (!variant.getProduct().getId().equals(productId)) {
+                throw new BusinessException("Variant does not belong to this product");
+            }
+            if (!variant.isActive()) {
+                throw new BusinessException("Variant is not available");
+            }
+            if (variant.getStock() < quantity) {
+                throw new BusinessException("Insufficient stock. Available: " + variant.getStock());
+            }
+        } else {
+            if (product.getStock() != null && product.getStock() < quantity) {
+                throw new BusinessException("Insufficient stock. Available: " + product.getStock());
+            }
         }
 
-        CartItem existingItem = cartItemRepository.findByCartIdAndProductId(cart.getId(), productId)
-                .orElse(null);
+        CartItem existingItem = variantId != null
+                ? cartItemRepository.findByCartIdAndProductIdAndVariantId(cart.getId(), productId, variantId).orElse(null)
+                : cartItemRepository.findByCartIdAndProductId(cart.getId(), productId).orElse(null);
+
+        BigDecimal effectivePrice = variant != null ? variant.getPrice() : discountService.computeEffectivePrice(product);
+        BigDecimal discountAmt = variant != null ? java.math.BigDecimal.ZERO : discountService.computeDiscountAmount(product);
 
         if (existingItem != null) {
             int newQuantity = existingItem.getQuantity() + quantity;
-            if (product.getStock() < newQuantity) {
-                throw new BusinessException("Insufficient stock. Available: " + product.getStock());
-            }
-            int delta = newQuantity - existingItem.getQuantity();
-            int updated = productRepository.decrementStock(productId, delta);
-            if (updated == 0) {
-                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+            if (variant != null) {
+                if (variant.getStock() < newQuantity) {
+                    throw new BusinessException("Insufficient stock. Available: " + variant.getStock());
+                }
+                int delta = newQuantity - existingItem.getQuantity();
+                int updated = productVariantRepository.decrementStock(variantId, delta);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productVariantRepository.findById(variantId).map(ProductVariant::getStock).orElse(0));
+                }
+            } else {
+                if (product.getStock() != null && product.getStock() < newQuantity) {
+                    throw new BusinessException("Insufficient stock. Available: " + product.getStock());
+                }
+                int delta = newQuantity - existingItem.getQuantity();
+                int updated = productRepository.decrementStock(productId, delta);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+                }
             }
             existingItem.setQuantity(newQuantity);
-            existingItem.setUnitPrice(discountService.computeEffectivePrice(product));
-            existingItem.setDiscountAmount(discountService.computeDiscountAmount(product));
+            existingItem.setUnitPrice(effectivePrice);
+            existingItem.setDiscountAmount(discountAmt);
             cartItemRepository.save(existingItem);
         } else {
-            int updated = productRepository.decrementStock(productId, quantity);
-            if (updated == 0) {
-                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+            if (variant != null) {
+                int updated = productVariantRepository.decrementStock(variantId, quantity);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productVariantRepository.findById(variantId).map(ProductVariant::getStock).orElse(0));
+                }
+            } else {
+                int updated = productRepository.decrementStock(productId, quantity);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(productId).map(Product::getStock).orElse(0));
+                }
             }
-            CartItem newItem = new CartItem(cart, productId, quantity, discountService.computeEffectivePrice(product));
-            newItem.setDiscountAmount(discountService.computeDiscountAmount(product));
+            CartItem newItem = new CartItem(cart, productId, variantId, variant != null ? variant.getSku() : null, quantity, effectivePrice);
+            newItem.setDiscountAmount(discountAmt);
             cartItemRepository.save(newItem);
         }
 
@@ -140,26 +187,43 @@ public class CartService {
             throw new AccessDeniedException("Cart item does not belong to this cart");
         }
 
-        Product product = productRepository.findById(item.getProductId())
-                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProductId()));
-
         int delta = quantity - item.getQuantity();
-        if (delta > 0 && product.getStock() < delta) {
-            throw new BusinessException("Insufficient stock. Available: " + product.getStock());
-        }
 
-        if (delta > 0) {
-            int updated = productRepository.decrementStock(item.getProductId(), delta);
-            if (updated == 0) {
-                throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(item.getProductId()).map(Product::getStock).orElse(0));
+        if (item.getVariantId() != null) {
+            ProductVariant variant = productVariantRepository.findById(item.getVariantId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product variant", "id", item.getVariantId()));
+            if (delta > 0 && variant.getStock() < delta) {
+                throw new BusinessException("Insufficient stock. Available: " + variant.getStock());
             }
-        } else if (delta < 0) {
-            productRepository.incrementStock(item.getProductId(), -delta);
+            if (delta > 0) {
+                int updated = productVariantRepository.decrementStock(item.getVariantId(), delta);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productVariantRepository.findById(item.getVariantId()).map(ProductVariant::getStock).orElse(0));
+                }
+            } else if (delta < 0) {
+                productVariantRepository.incrementStock(item.getVariantId(), -delta);
+            }
+            item.setUnitPrice(variant.getPrice());
+            item.setDiscountAmount(java.math.BigDecimal.ZERO);
+        } else {
+            Product product = productRepository.findById(item.getProductId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Product", "id", item.getProductId()));
+            if (delta > 0 && product.getStock() != null && product.getStock() < delta) {
+                throw new BusinessException("Insufficient stock. Available: " + product.getStock());
+            }
+            if (delta > 0) {
+                int updated = productRepository.decrementStock(item.getProductId(), delta);
+                if (updated == 0) {
+                    throw new BusinessException("Insufficient stock. Available: " + productRepository.findById(item.getProductId()).map(Product::getStock).orElse(0));
+                }
+            } else if (delta < 0) {
+                productRepository.incrementStock(item.getProductId(), -delta);
+            }
+            item.setUnitPrice(discountService.computeEffectivePrice(product));
+            item.setDiscountAmount(discountService.computeDiscountAmount(product));
         }
 
         item.setQuantity(quantity);
-        item.setUnitPrice(discountService.computeEffectivePrice(product));
-        item.setDiscountAmount(discountService.computeDiscountAmount(product));
         cartItemRepository.save(item);
 
         cart.setUpdatedAt(Instant.now());
@@ -192,7 +256,11 @@ public class CartService {
             throw new AccessDeniedException("Cart item does not belong to this cart");
         }
 
-        productRepository.incrementStock(item.getProductId(), item.getQuantity());
+        if (item.getVariantId() != null) {
+            productVariantRepository.incrementStock(item.getVariantId(), item.getQuantity());
+        } else {
+            productRepository.incrementStock(item.getProductId(), item.getQuantity());
+        }
         cartItemRepository.delete(item);
 
         cart.setUpdatedAt(Instant.now());
@@ -211,7 +279,11 @@ public class CartService {
         }
         List<CartItem> items = cartItemRepository.findByCartId(cart.getId());
         for (CartItem item : items) {
-            productRepository.incrementStock(item.getProductId(), item.getQuantity());
+            if (item.getVariantId() != null) {
+                productVariantRepository.incrementStock(item.getVariantId(), item.getQuantity());
+            } else {
+                productRepository.incrementStock(item.getProductId(), item.getQuantity());
+            }
         }
         cartItemRepository.deleteByCartId(cart.getId());
         cart.setUpdatedAt(Instant.now());
@@ -244,7 +316,19 @@ public class CartService {
                 .map(item -> {
                     Product product = productRepository.findById(item.getProductId()).orElse(null);
                     String productName = product != null ? product.getName() : "Unknown Product";
-                    int stock = product != null ? product.getStock() : 0;
+                    int stock;
+                    if (item.getVariantId() != null) {
+                        ProductVariant variant = productVariantRepository.findById(item.getVariantId()).orElse(null);
+                        stock = variant != null ? variant.getStock() : 0;
+                        if (variant != null && product != null) {
+                            productName = product.getName();
+                            for (var entry : variant.getAttributes().entrySet()) {
+                                productName += " - " + entry.getKey() + ": " + entry.getValue();
+                            }
+                        }
+                    } else {
+                        stock = product != null && product.getStock() != null ? product.getStock() : 0;
+                    }
                     return CartItemResponse.from(item, productName, stock);
                 })
                 .toList();

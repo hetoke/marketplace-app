@@ -5,5 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record AddToCartRequest(
-        @NotNull @Min(1) Integer quantity
+        @NotNull @Min(1) Integer quantity,
+        UUID variantId
 ) {}

@@ -61,11 +61,14 @@ class CartControllerTest {
         CartItemResponse item = new CartItemResponse(
                 UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(),
+                null,
+                null,
                 "Test Product",
                 2,
                 new BigDecimal("29.99"),
                 new BigDecimal("59.98"),
-                10
+                10,
+                new BigDecimal("0.00")
         );
         return new CartResponse(
                 UUID.randomUUID().toString(),
@@ -90,7 +93,7 @@ class CartControllerTest {
     void addItem_returnsCreated() throws Exception {
         CartResponse response = createTestCartResponse();
         String productId = UUID.randomUUID().toString();
-        when(cartService.addItem(eq(userId), any(UUID.class), eq(2))).thenReturn(response);
+        when(cartService.addItem(eq(userId), any(UUID.class), any(), eq(2))).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/cart/items/" + productId)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -112,7 +115,7 @@ class CartControllerTest {
     @Test
     void addItem_returnsNotFound_whenProductNotFound() throws Exception {
         String productId = UUID.randomUUID().toString();
-        when(cartService.addItem(eq(userId), any(UUID.class), eq(1)))
+        when(cartService.addItem(eq(userId), any(UUID.class), any(), eq(1)))
                 .thenThrow(new ResourceNotFoundException("Product", "id", UUID.randomUUID()));
 
         mockMvc.perform(post("/api/v1/cart/items/" + productId)
@@ -124,7 +127,7 @@ class CartControllerTest {
     @Test
     void addItem_returnsBadRequest_whenInsufficientStock() throws Exception {
         String productId = UUID.randomUUID().toString();
-        when(cartService.addItem(eq(userId), any(UUID.class), eq(10)))
+        when(cartService.addItem(eq(userId), any(UUID.class), any(), eq(10)))
                 .thenThrow(new BusinessException("Insufficient stock. Available: 3"));
 
         mockMvc.perform(post("/api/v1/cart/items/" + productId)
