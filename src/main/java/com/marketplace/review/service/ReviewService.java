@@ -99,7 +99,11 @@ public class ReviewService {
                 .map(review -> {
                     User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
                     String buyerName = buyer != null ? buyer.getDisplayName() : null;
-                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
+                    UUID variantId = review.getVariantId();
+                    if (variantId == null) {
+                        variantId = findPurchasedVariantId(review.getBuyerId(), productId);
+                    }
+                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(variantId));
                 });
     }
 
@@ -111,7 +115,12 @@ public class ReviewService {
         User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
 
-        return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
+        UUID variantId = review.getVariantId();
+        if (variantId == null) {
+            variantId = findPurchasedVariantId(review.getBuyerId(), review.getProductId());
+        }
+
+        return ReviewResponse.from(review, buyerName, resolveVariantAttributes(variantId));
     }
 
     @Transactional(readOnly = true)
@@ -121,7 +130,11 @@ public class ReviewService {
                 .map(review -> {
                     User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
                     String buyerName = buyer != null ? buyer.getDisplayName() : null;
-                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
+                    UUID variantId = review.getVariantId();
+                    if (variantId == null) {
+                        variantId = findPurchasedVariantId(buyerId, review.getProductId());
+                    }
+                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(variantId));
                 })
                 .toList();
     }
