@@ -5,7 +5,9 @@ import com.marketplace.order.model.OrderItem;
 import com.marketplace.order.repository.OrderItemRepository;
 import com.marketplace.order.repository.OrderRepository;
 import com.marketplace.product.model.Product;
+import com.marketplace.product.model.ProductVariant;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.repository.ProductVariantRepository;
 import com.marketplace.review.dto.CreateReviewRequest;
 import com.marketplace.review.dto.ReviewResponse;
 import com.marketplace.review.dto.UpdateReviewRequest;
@@ -17,6 +19,7 @@ import com.marketplace.user.model.User;
 import com.marketplace.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +32,7 @@ public class ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final UserRepository userRepository;
@@ -36,12 +40,14 @@ public class ReviewService {
 
     public ReviewService(ReviewRepository reviewRepository,
                          ProductRepository productRepository,
+                         ProductVariantRepository productVariantRepository,
                          OrderRepository orderRepository,
                          OrderItemRepository orderItemRepository,
                          UserRepository userRepository,
                          CacheManager cacheManager) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.userRepository = userRepository;
@@ -63,6 +69,7 @@ public class ReviewService {
         if (review != null) {
             review.setRating(request.rating());
             review.setComment(request.comment());
+            review.setVariantId(request.variantId());
             review.setUpdatedAt(Instant.now());
         } else {
             review = new Review(
@@ -72,6 +79,7 @@ public class ReviewService {
                     request.comment(),
                     verifiedPurchase
             );
+            review.setVariantId(request.variantId());
         }
         review = reviewRepository.save(review);
 
@@ -80,7 +88,7 @@ public class ReviewService {
         User buyer = userRepository.findById(buyerId).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
 
-        return ReviewResponse.from(review, buyerName);
+        return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
     }
 
     @Transactional(readOnly = true)
@@ -89,7 +97,7 @@ public class ReviewService {
                 .map(review -> {
                     User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
                     String buyerName = buyer != null ? buyer.getDisplayName() : null;
-                    return ReviewResponse.from(review, buyerName);
+                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
                 });
     }
 
@@ -101,7 +109,7 @@ public class ReviewService {
         User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
 
-        return ReviewResponse.from(review, buyerName);
+        return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +119,7 @@ public class ReviewService {
                 .map(review -> {
                     User buyer = userRepository.findById(review.getBuyerId()).orElse(null);
                     String buyerName = buyer != null ? buyer.getDisplayName() : null;
-                    return ReviewResponse.from(review, buyerName);
+                    return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
                 })
                 .toList();
     }
@@ -140,7 +148,7 @@ public class ReviewService {
         User buyer = userRepository.findById(buyerId).orElse(null);
         String buyerName = buyer != null ? buyer.getDisplayName() : null;
 
-        return ReviewResponse.from(review, buyerName);
+        return ReviewResponse.from(review, buyerName, resolveVariantAttributes(review.getVariantId()));
     }
 
     @Transactional
@@ -192,5 +200,12 @@ public class ReviewService {
         productRepository.save(product);
         var productByIdCache = cacheManager.getCache("productById");
         if (productByIdCache != null) productByIdCache.evict(product.getId());
+    }
+
+    private Map<String, String> resolveVariantAttributes(UUID variantId) {
+        if (variantId == null) return null;
+        return productVariantRepository.findById(variantId)
+                .map(ProductVariant::getAttributes)
+                .orElse(null);
     }
 }

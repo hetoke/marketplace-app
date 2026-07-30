@@ -107,7 +107,7 @@ class ReviewServiceTest {
         when(reviewRepository.countByProductId(product.getId()))
                 .thenReturn(1L);
 
-        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 5, "Great product!");
+        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 5, "Great product!", null);
         ReviewResponse response = reviewService.createReview(USER_ID, request);
 
         assertThat(response).isNotNull();
@@ -123,7 +123,7 @@ class ReviewServiceTest {
         when(productRepository.findById(productId))
                 .thenReturn(Optional.empty());
 
-        CreateReviewRequest request = new CreateReviewRequest(productId, 5, "Great!");
+        CreateReviewRequest request = new CreateReviewRequest(productId, 5, "Great!", null);
         assertThatThrownBy(() -> reviewService.createReview(USER_ID, request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
@@ -157,7 +157,7 @@ class ReviewServiceTest {
         when(reviewRepository.countByProductId(product.getId()))
                 .thenReturn(1L);
 
-        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 4, "Updated!");
+        CreateReviewRequest request = new CreateReviewRequest(product.getId(), 4, "Updated!", null);
         ReviewResponse response = reviewService.createReview(USER_ID, request);
 
         assertThat(response).isNotNull();
