@@ -60,11 +60,14 @@ class OrderControllerTest {
         OrderItemResponse item = new OrderItemResponse(
                 UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(),
+                null,
+                null,
                 "Test Product",
                 null,
                 new BigDecimal("29.99"),
                 2,
-                new BigDecimal("59.98")
+                new BigDecimal("59.98"),
+                new BigDecimal("0.00")
         );
         return new OrderResponse(
                 UUID.randomUUID().toString(),
@@ -81,8 +84,11 @@ class OrderControllerTest {
                 null,
                 null,
                 List.of(item),
+                2,
                 Instant.now(),
-                null
+                null,
+                new BigDecimal("0.00"),
+                new BigDecimal("59.98")
         );
     }
 
