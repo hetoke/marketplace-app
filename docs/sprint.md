@@ -464,3 +464,90 @@ Production-ready portfolio project.
 
 ### Demo
 Public URL + GitHub Repository.
+
+---
+
+# 🏗️ As-Built Sprint Outcomes
+
+> Added 2026-07-26. Verified against the codebase. The plan above is retained as
+> written; this section records what each sprint actually delivered.
+> Of the ten docs, this one held up best — the sprint sequence matches the migration
+> history almost exactly (`V1`→`V24`).
+
+## E1. Sprint-by-sprint
+
+| Sprint | Outcome |
+|---|---|
+| **0 — Foundation** | ✅ Delivered. Spring Boot 4.1.0 / Java 25, PostgreSQL 16, **Flyway** (Liquibase not used), `GlobalExceptionHandler`, springdoc/Swagger, Docker + Compose, GitHub Actions CI. DoD met: `docker compose up` starts nginx + app + db + redis. Modular monolith built, but as **vertical slices per domain**, not the `api/controller/` layout in `modules.md` — see that doc's §D1. |
+| **1 — Auth & Users** | ✅ Delivered (`V1`, `V2`). All 9 planned endpoints exist. `Role` is an enum on `User`, not a separate entity. Added beyond plan: `POST /api/v1/auth/resend-verification`. |
+| **2 — Product Catalog** | ✅ Delivered (`V3`, `V4`). All 10 endpoints exist. Search covers name, category and price as planned. Added: `slug`, `GET /api/v1/seller/products`. |
+| **3 — Cart & Wishlist** | ⚠️ Delivered with two changes (`V5`). `POST /api/v1/cart/items` is actually **`POST /api/v1/cart/items/{productId}`**. `Wishlist`/`WishlistItem` collapsed to a single `wishlist_items` table. |
+| **4 — Orders & Checkout** | ⚠️ Delivered (`V6`). `Address` became four `default_*` columns on `users` (`V16`) plus a flattened `orders.shipping_address` string; `Inventory` collapsed to `products.stock`. **`GET /api/v1/orders/{orderId}/items` was never implemented** — items come back inline on the order. Added: `AdminOrderController`. |
+| **5 — Payments & Refunds** | ⚠️ Delivered on **SePay only** (`V8`, `V12`, `V14`); VNPay stayed optional and was skipped. `POST /api/v1/payments` became **`POST /api/v1/orders/{orderId}/pay`**; `GET /api/v1/payments/methods` was never built. `Transaction` and `Refund` collapsed into `payments`. Added: IPN + callback endpoints, admin refund approval, seller payment history, invoice numbers. |
+| **6 — Reviews & Notifications** | ✅ Delivered (`V17`, `V18`, `V19`). All 4 notification types shipped, plus `PROMOTIONAL`. Added: `/notifications/all`, `/unread-count`, `/read-all`, and the `average_rating`/`review_count` rollup onto `products`. |
+| **7 — Google Login & MFA** | ⚠️ Mostly delivered (`V20`, `V21`). Google OIDC, email OTP, recovery codes, `UserIdentity`, `MFAChallenge`, `RecoveryCode` all shipped. **Three gaps:** `GET /api/v1/auth/providers` not built (Google is static config, so `IdentityProvider` has no table); **"Device tracking" not built at all** — no device or location record anywhere; login alerts cover password/MFA changes only. `/users/mfa/recovery` actually lives at `/auth/mfa/recovery`, and `POST /api/v1/auth/oidc/login` is a **`GET`**. Added: `POST /api/v1/auth/oidc/token`, `POST /api/v1/auth/mfa/verify`, `POST /api/v1/users/mfa/disable/send-otp`. |
+| **8 — Admin & Analytics** | ⚠️ Delivered (`V22`). All 8 endpoints exist and match the planned paths. `AnalyticsReport` was **not** persisted — analytics compute on read and cache in Redis for 5 min. `AdminActionLog` shipped. **Sellers got no analytics** — all four endpoints are `hasRole('ADMIN')`, leaving the "Sales analytics and revenue tracking" item in the Seller Dashboard requirements unmet. |
+| **9 — Hardening & Deployment** | ⚠️ Partial — see §E2. |
+
+## E2. Sprint 9 detail
+
+| Item | Status |
+|---|---|
+| Unit tests | ✅ 26 test classes, **357 test methods** — full catalogue in `docs/test_specifications.md` |
+| Integration tests | ❌ **None, despite the plan.** All 26 classes are pure Mockito unit tests (`@ExtendWith(MockitoExtension.class)`); controller tests use *standalone* MockMvc, so no Spring context, no filter chain, no DB. The one `@SpringBootTest` is a context-load smoke test. Every repository is mocked — including `ImageRepositoryTest`, which mocks the repository it names. Because the `test` profile disables Flyway, **`mvn test` never runs a migration**. No Testcontainers, no test against real Postgres or Redis, and WireMock (declared) is never used. |
+| Security tests | ❌ **No test verifies that any endpoint is protected.** With no filter chain and no method-security interceptor, `@PreAuthorize` and `PermissionService` are inert during tests; the `returns403` cases assert `GlobalExceptionHandler` mapping, not access control. Ownership *is* covered at the service layer (14 IDOR-class cases). See `test_specifications.md` §11.3. |
+| Rate limiting | ✅ Bucket4j over Redis, five per-route buckets — but see the dead-regex note in `api_specifications.md` §A15 |
+| Input validation | ✅ Bean Validation throughout, sort fields allowlisted, page size clamped |
+| Audit logging | ✅ `admin_action_log` |
+| Redis cache | ✅ 8 cache regions, 5–15 min TTLs |
+| Query optimization | ✅ Indexes in migrations; denormalised counters (`sold_count`, `review_count`, `average_rating`); optimistic locking |
+| Docker deployment | ✅ Compose stack with healthchecks |
+| Production environment | ⚠️ **CI does not deploy** — no Hetzner workflow; deploy is a manual `docker compose up`. nginx serves **plain HTTP** (`8080:80`), so the HTTPS/TLS requirement is unmet inside this stack. |
+| Monitoring basics | ❌ **Not delivered.** Actuator is not a dependency; no metrics, health endpoint or dashboards beyond application logs. |
+| Architecture diagram | ⚠️ 14 Mermaid diagrams in `docs/diagrams/` cover sequences and flows, but there is **no C4/component architecture diagram** |
+| ERD | ❌ Not produced as a diagram — the schema is documented in `data_model.md` §B (added 2026-07-26) |
+| API documentation | ✅ Live OpenAPI at `/v3/api-docs` + Swagger UI; `api_specifications.md` §A added 2026-07-26 |
+| Test documentation | ✅ `docs/test_specifications.md` added 2026-07-26 — 357 cases catalogued with traceability to use cases. **No coverage tooling** (JaCoCo absent), so no measured coverage figure exists. |
+| README | ⚠️ Backend has only the Spring Initializr `HELP.md`; the frontend README is the unmodified `create-next-app` boilerplate. **A real project README does not exist.** |
+
+## E3. Unplanned work that shipped
+
+Not in any sprint above, but built and in production:
+
+| Feature | Migrations | Notes |
+|---|---|---|
+| **Media upload pipeline** | `V4`, `V7`, `V10` | Direct-to-Supabase signed uploads, `upload_sessions` two-phase commit, storage webhook, avatar + product images. The single largest unplanned module. |
+| **Per-product discount campaigns** | `V23` | `PERCENT`/`FIXED` with active window; `DiscountService`, `discount_amount`/`original_amount` on cart, order and order items. See `discount_campaign_plan.md`. |
+| **Sold-count tracking** | `V24` | `products.sold_count`, bumped at order placement |
+| **User suspension** | — | `UserStatus { ACTIVE, SUSPENDED, DEACTIVATED }`, enforced at login |
+| **Optimistic locking** | `V9`, `V15` | products, carts, orders, payments, reviews |
+| **Cart expiration sweeper** | — | `CartExpirationService` |
+| **VN localisation** | `V13`, `V16` | VND currency default; province/district/ward addresses |
+| **Load + security testing** | — | k6 + JMeter (`k8/`), OWASP ZAP (`zap-reports/`) — beyond Sprint 9's scope |
+
+## E4. Suggested Sprint 10 backlog
+
+Derived from the gaps above and the other as-built appendices, roughly by value:
+
+1. **Seller analytics dashboard** — the biggest requirement gap. Needs seller-scoped
+   revenue/order/product endpoints (currently ADMIN-only) plus a `app/seller` page.
+2. **Fix `GET /api/v1/orders/{orderId}/items`** — the frontend proxy at
+   `app/api/orders/[orderId]/items/route.ts` calls a backend endpoint that doesn't
+   exist. Implement it or delete the proxy.
+3. **Project README + architecture/ERD diagrams** — Sprint 9 deliverables still open;
+   both repo READMEs are still generator boilerplate.
+4. **Monitoring** — add Actuator, expose health/metrics, wire a healthcheck for the
+   `app` service in Compose.
+5. **TLS + secret hygiene** — terminate HTTPS; remove the insecure defaults for
+   `JWT_*_SECRET`, `WEBHOOK_SECRET`, `ADMIN_PASSWORD`.
+6. **Seller order management** — sellers currently cannot change order status at all.
+7. **Fix the dead review rate-limit regex** (`RateLimitFilter` ~line 126: `\d+` vs UUID).
+8. **Integration tests against real Postgres** (Testcontainers) so Flyway runs in CI;
+   add a CD job.
+9. **Search depth** — rating filter, popularity sort, auto-complete, trending
+   (`sold_count` already supports the last two).
+10. **Enforce mandatory seller MFA**, an order-status timeline, and cancellation /
+    return windows — three specified behaviours that were never enforced.
+11. **Product variants** — `docs/item_variants_plan.md` (renumber its migrations to
+    `V25+`; `V23`/`V24` are taken).
+
