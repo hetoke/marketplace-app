@@ -1,0 +1,31 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Build artifacts
+target/
+
+# Documentation
+docs/
+HELP.md
+
+# Environment files
+.env
+.env.example
+
+# Docker/infra configs
+docker-compose.yml
+nginx/
+k8/
+
+# IDE/OS
+.opencode/
+*.iml
+.idea/
+
+# Misc
+backup.sql
+zap-reports/
+supabase/
