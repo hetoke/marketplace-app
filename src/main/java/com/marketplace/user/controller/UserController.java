@@ -4,6 +4,7 @@ import com.marketplace.shared.dto.ApiResponse;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.user.dto.AuthResponse;
 import com.marketplace.user.dto.ChangePasswordRequest;
+import com.marketplace.user.dto.MfaSetupResponse;
 import com.marketplace.user.dto.UpdateProfileRequest;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.User;
@@ -42,7 +43,6 @@ public class UserController {
 	@PreAuthorize("isAuthenticated()")
 	public ResponseEntity<ApiResponse<UserResponse>> getProfile() {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
-		System.out.println(userId);
 		UserResponse user = userService.getProfile(userId);
 		return ResponseEntity.ok(ApiResponse.ok(user));
 	}
@@ -78,12 +78,12 @@ public class UserController {
 
 	@PostMapping("/mfa/verify")
 	@PreAuthorize("isAuthenticated()")
-	public ResponseEntity<ApiResponse<AuthResponse>> verifyMFASetup(@RequestBody Map<String, String> body) {
+	public ResponseEntity<ApiResponse<MfaSetupResponse>> verifyMFASetup(@RequestBody Map<String, String> body) {
 		String userId = SecurityContextHolder.getContext().getAuthentication().getName();
 		String otp = body.get("otp");
 		User user = userRepository.findById(UUID.fromString(userId))
 				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
-		AuthResponse response = mfaService.verifySetup(user, otp);
+		MfaSetupResponse response = mfaService.verifySetup(user, otp);
 		return ResponseEntity.ok(ApiResponse.ok("MFA enabled successfully", response));
 	}
 

@@ -44,7 +44,7 @@ public class AuthController {
 	public ResponseEntity<ApiResponse<UserResponse>> register(@Valid @RequestBody RegisterRequest request) {
 		UserResponse user = authService.register(request);
 		return ResponseEntity.status(HttpStatus.CREATED)
-				.body(ApiResponse.ok("Registration successful", user));
+				.body(ApiResponse.ok("If this email is not already registered, a verification link has been sent", user));
 	}
 
 	@PostMapping("/login")

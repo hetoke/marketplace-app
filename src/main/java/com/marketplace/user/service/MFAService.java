@@ -5,6 +5,7 @@ import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.security.JwtTokenProvider;
 import com.marketplace.shared.security.TokenType;
 import com.marketplace.user.dto.AuthResponse;
+import com.marketplace.user.dto.MfaSetupResponse;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.MFAChallenge;
 import com.marketplace.user.model.RecoveryCode;
@@ -33,6 +34,8 @@ public class MFAService {
     private static final int RECOVERY_CODE_COUNT = 10;
     private static final int RECOVERY_CODE_LENGTH = 8;
     private static final int CHALLENGE_EXPIRY_MINUTES = 5;
+    private static final int MAX_OTP_ATTEMPTS = 5;
+    private static final int OTP_LOCKOUT_MINUTES = 15;
     private static final SecureRandom secureRandom = new SecureRandom();
 
     private final MFAChallengeRepository mfaChallengeRepository;
@@ -78,7 +81,7 @@ public class MFAService {
     }
 
     @Transactional
-    public AuthResponse verifySetup(User user, String otp) {
+    public MfaSetupResponse verifySetup(User user, String otp) {
         if (user.isMfaEnabled()) {
             throw new BusinessException("MFA is already enabled");
         }
@@ -92,9 +95,9 @@ public class MFAService {
         mfaChallengeRepository.delete(challenge);
 
         List<String> recoveryCodes = generateRecoveryCodes(user);
-        log.info("MFA enabled for {}, recovery codes: {}", user.getEmail(), recoveryCodes);
+        log.info("MFA enabled for {}", user.getEmail());
 
-        return new AuthResponse(null, null, UserResponse.from(user), false, null, recoveryCodes);
+        return new MfaSetupResponse(UserResponse.from(user), recoveryCodes);
     }
 
     @Transactional
@@ -195,6 +198,11 @@ public class MFAService {
     }
 
     private MFAChallenge findValidChallenge(User user, MFAChallenge.ChallengeType type, String otp) {
+        if (user.getOtpLockedUntil() != null && Instant.now().isBefore(user.getOtpLockedUntil())) {
+            long waitSeconds = java.time.Duration.between(Instant.now(), user.getOtpLockedUntil()).getSeconds();
+            throw new BusinessException("Too many failed attempts. Try again in " + waitSeconds + " seconds");
+        }
+
         List<MFAChallenge> challenges = mfaChallengeRepository
                 .findByUserIdAndTypeOrderByCreatedAtDesc(user.getId(), type);
 
@@ -203,9 +211,22 @@ public class MFAService {
                 continue;
             }
             if (passwordEncoder.matches(otp, challenge.getCodeHash())) {
+                user.setFailedOtpAttempts(0);
+                user.setOtpLockedUntil(null);
+                user.setUpdatedAt(Instant.now());
+                userRepository.save(user);
                 return challenge;
             }
         }
+
+        int attempts = user.getFailedOtpAttempts() + 1;
+        user.setFailedOtpAttempts(attempts);
+        if (attempts >= MAX_OTP_ATTEMPTS) {
+            user.setOtpLockedUntil(Instant.now().plus(OTP_LOCKOUT_MINUTES, ChronoUnit.MINUTES));
+            log.warn("MFA account locked for {} due to {} failed OTP attempts", user.getEmail(), attempts);
+        }
+        user.setUpdatedAt(Instant.now());
+        userRepository.save(user);
 
         throw new BusinessException("Invalid or expired OTP");
     }

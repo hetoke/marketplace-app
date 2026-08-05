@@ -69,7 +69,7 @@ public class AuthService {
 		}
 
 		if (userRepository.existsByEmail(request.email())) {
-			throw new BusinessException("Email already registered");
+			return null;
 		}
 
 		User user = new User();
@@ -92,6 +92,10 @@ public class AuthService {
 		User user = userRepository.findByEmail(request.email())
 				.orElseThrow(() -> new BusinessException("Invalid email or password"));
 
+		if (user.getAuthenticationType() == User.AuthenticationType.OIDC) {
+			throw new BusinessException("Invalid email or password");
+		}
+
 		if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 			throw new BusinessException("Invalid email or password");
 		}
@@ -106,7 +110,7 @@ public class AuthService {
 		if (user.isMfaEnabled()) {
 			String mfaToken = jwtTokenProvider.generateMfaToken(user.getId().toString());
 			mfaService.sendLoginOTP(user);
-			return new AuthResponse(null, null, null, true, mfaToken, null);
+			return new AuthResponse(null, null, null, true, mfaToken);
 		}
 
 		return generateTokenPair(user);
@@ -184,7 +188,7 @@ public class AuthService {
 	@Transactional
 	public void forgotPassword(ForgotPasswordRequest request) {
 		User user = userRepository.findByEmail(request.email()).orElse(null);
-		if (user == null) {
+		if (user == null || user.getAuthenticationType() == User.AuthenticationType.OIDC) {
 			return;
 		}
 
@@ -206,6 +210,10 @@ public class AuthService {
 		}
 
 		User user = token.getUser();
+		if (user.getAuthenticationType() == User.AuthenticationType.OIDC) {
+			throw new BusinessException("Password reset is not available for Google sign-in accounts");
+		}
+
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);

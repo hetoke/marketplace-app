@@ -34,7 +34,7 @@ public class OidcService {
     private static final Logger log = LoggerFactory.getLogger(OidcService.class);
     private static final String GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
     private static final String GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-    private static final String OIDC_NO_PASSWORD = "OIDC_NO_PASSWORD_PLACEHOLDER";
+    private static final String OIDC_NO_PASSWORD = "OIDC_NO_PASSWORD_" + UUID.randomUUID().toString();
 
     private final OidcProperties oidcProperties;
     private final UserRepository userRepository;
@@ -98,6 +98,7 @@ public class OidcService {
 
         // Exchange authorization code for tokens
         JsonNode tokenResponse = exchangeCodeForTokens(code);
+        log.info("Token response: {}", tokenResponse);
         String idToken = tokenResponse.has("id_token") ? tokenResponse.get("id_token").asText() : null;
         if (idToken == null) {
             throw new BusinessException("No ID token received from Google");
