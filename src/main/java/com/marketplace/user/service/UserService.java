@@ -1,5 +1,6 @@
 package com.marketplace.user.service;
 
+import com.marketplace.email.EmailService;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.user.dto.ChangePasswordRequest;
@@ -7,6 +8,7 @@ import com.marketplace.user.dto.SellerResponse;
 import com.marketplace.user.dto.UpdateProfileRequest;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.User;
+import com.marketplace.user.repository.RefreshTokenRepository;
 import com.marketplace.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.UUID;
@@ -19,10 +21,15 @@ public class UserService {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final RefreshTokenRepository refreshTokenRepository;
+	private final EmailService emailService;
 
-	public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+	public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,
+			RefreshTokenRepository refreshTokenRepository, EmailService emailService) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.refreshTokenRepository = refreshTokenRepository;
+		this.emailService = emailService;
 	}
 
 	public UserResponse getProfile(String userId) {
@@ -68,12 +75,23 @@ public class UserService {
 		User user = userRepository.findById(UUID.fromString(userId))
 				.orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+		if (user.getAuthenticationType() == User.AuthenticationType.OIDC) {
+			throw new BusinessException("Password change is not available for Google sign-in accounts");
+		}
+
 		if (!passwordEncoder.matches(request.currentPassword(), user.getPasswordHash())) {
 			throw new BusinessException("Current password is incorrect");
+		}
+
+		if (passwordEncoder.matches(request.newPassword(), user.getPasswordHash())) {
+			throw new BusinessException("New password must be different from current password");
 		}
 
 		user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
 		user.setUpdatedAt(Instant.now());
 		userRepository.save(user);
+
+		refreshTokenRepository.deleteByUserId(user.getId());
+		emailService.sendPasswordChangeNotification(user.getEmail());
 	}
 }

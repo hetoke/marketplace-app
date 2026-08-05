@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN failed_otp_attempts INT NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN otp_locked_until TIMESTAMP NULL;

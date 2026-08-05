@@ -39,6 +39,12 @@ public class User {
 	@Column(name = "mfa_enabled", nullable = false)
 	private boolean mfaEnabled = false;
 
+	@Column(name = "failed_otp_attempts", nullable = false)
+	private int failedOtpAttempts = 0;
+
+	@Column(name = "otp_locked_until")
+	private Instant otpLockedUntil;
+
 	@Column(name = "display_name")
 	private String displayName;
 
@@ -99,6 +105,12 @@ public class User {
 
 	public boolean isMfaEnabled() { return mfaEnabled; }
 	public void setMfaEnabled(boolean mfaEnabled) { this.mfaEnabled = mfaEnabled; }
+
+	public int getFailedOtpAttempts() { return failedOtpAttempts; }
+	public void setFailedOtpAttempts(int failedOtpAttempts) { this.failedOtpAttempts = failedOtpAttempts; }
+
+	public Instant getOtpLockedUntil() { return otpLockedUntil; }
+	public void setOtpLockedUntil(Instant otpLockedUntil) { this.otpLockedUntil = otpLockedUntil; }
 
 	public String getDisplayName() { return displayName; }
 	public void setDisplayName(String displayName) { this.displayName = displayName; }

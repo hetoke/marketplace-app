@@ -62,6 +62,19 @@ public class EmailService {
         send(to, subject, html);
     }
 
+    @Async
+    public void sendPasswordChangeNotification(String to) {
+        String subject = "Your password was changed";
+        String html = buildButtonEmail(
+                "Password changed",
+                "<p>Your password was successfully changed. If you did not make this change, please contact support immediately.</p>",
+                "Contact Support",
+                frontendUrl + "/support",
+                "This is a notification email. No action is required if you made this change."
+        );
+        send(to, subject, html);
+    }
+
     private void send(String to, String subject, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();

@@ -29,9 +29,6 @@ spring:
       repositories:
         enabled: false
 
-  cache:
-    type: redis
-
   jackson:
     default-property-inclusion: non_null
 
@@ -59,6 +56,8 @@ springdoc:
     operations-sorter: alpha
 
 app:
+  cache:
+    enabled: true
   rate-limit:
     enabled: true
     auth:
@@ -78,6 +77,10 @@ app:
       refill-tokens: 10
       refill-duration-minutes: 1
     uploads:
+      capacity: 5
+      refill-tokens: 5
+      refill-duration-minutes: 1
+    password:
       capacity: 5
       refill-tokens: 5
       refill-duration-minutes: 1
