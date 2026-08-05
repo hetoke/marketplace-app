@@ -54,8 +54,14 @@ class UserControllerTest {
 	}
 
 	private UserResponse createTestUserResponse() {
-		return new UserResponse(UUID.randomUUID().toString(), "test@test.com", "Test User", null,
-				User.Role.BUYER, true, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		return UserResponse.builder()
+				.id(UUID.randomUUID().toString())
+				.email("test@test.com")
+				.displayName("Test User")
+				.role(User.Role.BUYER)
+				.isVerified(true)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 	}
 
 	// ==================== GET PROFILE ====================
@@ -93,9 +99,14 @@ class UserControllerTest {
 
 	@Test
 	void updateProfile_success() throws Exception {
-		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "Updated Name", null,
-				User.Role.BUYER, true, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		UserResponse userResponse = UserResponse.builder()
+				.id(UUID.randomUUID().toString())
+				.email("test@test.com")
+				.displayName("Updated Name")
+				.role(User.Role.BUYER)
+				.isVerified(true)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -108,9 +119,14 @@ class UserControllerTest {
 
 	@Test
 	void updateProfile_displayNameLowerBound1char_success() throws Exception {
-		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", "A", null,
-				User.Role.BUYER, true, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		UserResponse userResponse = UserResponse.builder()
+				.id(UUID.randomUUID().toString())
+				.email("test@test.com")
+				.displayName("A")
+				.role(User.Role.BUYER)
+				.isVerified(true)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -123,9 +139,14 @@ class UserControllerTest {
 	@Test
 	void updateProfile_displayNameUpperBound255chars_success() throws Exception {
 		String name255 = "A".repeat(255);
-		UserResponse userResponse = new UserResponse(
-				UUID.randomUUID().toString(), "test@test.com", name255, null,
-				User.Role.BUYER, true, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		UserResponse userResponse = UserResponse.builder()
+				.id(UUID.randomUUID().toString())
+				.email("test@test.com")
+				.displayName(name255)
+				.role(User.Role.BUYER)
+				.isVerified(true)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 		when(userService.updateProfile(anyString(), any())).thenReturn(userResponse);
 
 		mockMvc.perform(put("/api/v1/users/profile")
@@ -206,7 +227,7 @@ class UserControllerTest {
 	void changePassword_success() throws Exception {
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Password changed successfully"));
 	}
@@ -215,13 +236,13 @@ class UserControllerTest {
 	void changePassword_newPasswordLowerBound8chars_success() throws Exception {
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"abcdefgh\"}"))
+						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"Abcde1!@\"}"))
 				.andExpect(status().isOk());
 	}
 
 	@Test
 	void changePassword_newPasswordUpperBound128chars_success() throws Exception {
-		String newPass128 = "a".repeat(128);
+		String newPass128 = "Abc1!" + "a".repeat(118) + "@";
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
@@ -233,7 +254,7 @@ class UserControllerTest {
 	void changePassword_newPasswordBelowLowerBound7chars_returns400() throws Exception {
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"abcdefg\"}"))
+						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"Abc1!@\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("Validation failed"))
 				.andExpect(jsonPath("$.fieldErrors[0].field").value("newPassword"));
@@ -241,7 +262,7 @@ class UserControllerTest {
 
 	@Test
 	void changePassword_newPasswordAboveUpperBound129chars_returns400() throws Exception {
-		String newPass129 = "a".repeat(129);
+		String newPass129 = "Abc1!" + "a".repeat(123) + "@";
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
@@ -258,7 +279,7 @@ class UserControllerTest {
 
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"wrongpassword\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"currentPassword\":\"wrongpassword\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("Current password is incorrect"));
 	}
@@ -270,7 +291,7 @@ class UserControllerTest {
 
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"currentPassword\":\"oldpassword\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isNotFound());
 	}
 
@@ -278,7 +299,7 @@ class UserControllerTest {
 	void changePassword_emptyCurrentPassword_returns400() throws Exception {
 		mockMvc.perform(put("/api/v1/users/profile/password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"currentPassword\":\"\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"currentPassword\":\"\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isBadRequest());
 	}
 

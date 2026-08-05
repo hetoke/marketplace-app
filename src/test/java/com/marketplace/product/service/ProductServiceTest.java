@@ -99,6 +99,7 @@ class ProductServiceTest {
 				null,
 				null,
 				null,
+				null,
 				null);
 	}
 
@@ -172,7 +173,7 @@ class ProductServiceTest {
 		Product product = createTestProduct(category);
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Updated Product", "Updated description",
-				new BigDecimal("49.99"), 20, null, null, null, null);
+				new BigDecimal("49.99"), 20, null, null, null, null, null);
 
 		when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -470,7 +471,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Hello! @World# $100%", "desc",
-				new BigDecimal("9.99"), 1, null, null, null, null);
+				new BigDecimal("9.99"), 1, null, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -492,7 +493,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "My Test Product", "desc",
-				new BigDecimal("9.99"), 1, null, null, null, null);
+				new BigDecimal("9.99"), 1, null, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));
@@ -514,7 +515,7 @@ class ProductServiceTest {
 		Category category = createTestCategory();
 		ProductRequest request = new ProductRequest(
 				category.getId(), "Hello   World", "desc",
-				new BigDecimal("9.99"), 1, null, null, null, null);
+				new BigDecimal("9.99"), 1, null, null, null, null, null);
 		Product product = createTestProduct(category);
 
 		when(categoryRepository.findById(category.getId())).thenReturn(Optional.of(category));

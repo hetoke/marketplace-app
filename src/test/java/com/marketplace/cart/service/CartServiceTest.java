@@ -15,6 +15,7 @@ import com.marketplace.cart.repository.CartItemRepository;
 import com.marketplace.cart.repository.CartRepository;
 import com.marketplace.product.model.Product;
 import com.marketplace.product.repository.ProductRepository;
+import com.marketplace.product.service.DiscountService;
 import com.marketplace.shared.exception.AccessDeniedException;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
@@ -39,6 +40,9 @@ class CartServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private DiscountService discountService;
 
     @InjectMocks
     private CartService cartService;

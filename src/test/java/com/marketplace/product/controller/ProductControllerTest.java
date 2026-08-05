@@ -81,7 +81,8 @@ class ProductControllerTest {
 				false,
 				null,
 				null,
-				null);
+				null,
+				List.of());
 	}
 
 	private record ProductBody(String categoryId, String name, String description,
@@ -151,13 +152,15 @@ class ProductControllerTest {
 	}
 
 	@Test
-	void createProduct_nullPrice_returns400() throws Exception {
+	void createProduct_nullPrice_returns201() throws Exception {
+		ProductResponse productResponse = createTestProductResponse();
+		when(productService.createProduct(anyString(), any())).thenReturn(productResponse);
+
 		mockMvc.perform(post("/api/v1/products")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"categoryId\":\"" + UUID.randomUUID()
 								+ "\",\"name\":\"Test\",\"stock\":10}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.fieldErrors[0].field").value("price"));
+				.andExpect(status().isCreated());
 	}
 
 	@Test
@@ -181,13 +184,15 @@ class ProductControllerTest {
 	}
 
 	@Test
-	void createProduct_nullStock_returns400() throws Exception {
+	void createProduct_nullStock_returns201() throws Exception {
+		ProductResponse productResponse = createTestProductResponse();
+		when(productService.createProduct(anyString(), any())).thenReturn(productResponse);
+
 		mockMvc.perform(post("/api/v1/products")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"categoryId\":\"" + UUID.randomUUID()
 								+ "\",\"name\":\"Test\",\"price\":29.99}"))
-				.andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.fieldErrors[0].field").value("stock"));
+				.andExpect(status().isCreated());
 	}
 
 	@Test

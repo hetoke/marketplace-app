@@ -46,8 +46,13 @@ class AuthControllerTest {
 	}
 
 	private UserResponse createTestUserResponse() {
-		return new UserResponse("uuid-123", "test@test.com", "Test User", null,
-				User.Role.BUYER, false, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		return UserResponse.builder()
+				.id("uuid-123")
+				.email("test@test.com")
+				.displayName("Test User")
+				.role(User.Role.BUYER)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 	}
 
 	// ==================== REGISTER ====================
@@ -64,15 +69,20 @@ class AuthControllerTest {
 						.content(objectMapper.writeValueAsString(
 								new RegisterBody("test@test.com", "password123", "Test User", "BUYER"))))
 				.andExpect(status().isCreated())
-				.andExpect(jsonPath("$.message").value("Registration successful"))
+				.andExpect(jsonPath("$.message").value("If this email is not already registered, a verification link has been sent"))
 				.andExpect(jsonPath("$.data.email").value("test@test.com"))
 				.andExpect(jsonPath("$.data.displayName").value("Test User"));
 	}
 
 	@Test
 	void register_roleSeller_success() throws Exception {
-		UserResponse sellerResponse = new UserResponse("uuid-456", "seller@test.com", "Seller User", null,
-				User.Role.SELLER, false, false, User.AuthenticationType.LOCAL, null, null, null, null, null);
+		UserResponse sellerResponse = UserResponse.builder()
+				.id("uuid-456")
+				.email("seller@test.com")
+				.displayName("Seller User")
+				.role(User.Role.SELLER)
+				.authenticationType(User.AuthenticationType.LOCAL)
+				.build();
 		when(authService.register(any())).thenReturn(sellerResponse);
 
 		mockMvc.perform(post("/api/v1/auth/register")
@@ -456,7 +466,7 @@ class AuthControllerTest {
 	void resetPassword_success() throws Exception {
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"token\":\"valid-token\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"token\":\"valid-token\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.message").value("Password reset successfully"));
 	}
@@ -473,7 +483,7 @@ class AuthControllerTest {
 
 	@Test
 	void resetPassword_longPassword_returns400() throws Exception {
-		String password129 = "a".repeat(129);
+		String password129 = "Abc1!" + "a".repeat(123) + "@";
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 						.contentType(MediaType.APPLICATION_JSON)
 						.content(objectMapper.writeValueAsString(
@@ -485,7 +495,7 @@ class AuthControllerTest {
 	void resetPassword_emptyToken_returns400() throws Exception {
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"token\":\"\",\"newPassword\":\"newpassword123\"}"))
+						.content("{\"token\":\"\",\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isBadRequest());
 	}
 
@@ -493,7 +503,7 @@ class AuthControllerTest {
 	void resetPassword_missingToken_returns400() throws Exception {
 		mockMvc.perform(post("/api/v1/auth/reset-password")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"newPassword\":\"newpassword123\"}"))
+						.content("{\"newPassword\":\"NewPass1!\"}"))
 				.andExpect(status().isBadRequest());
 	}
 

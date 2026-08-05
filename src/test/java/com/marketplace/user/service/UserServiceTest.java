@@ -6,12 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.marketplace.email.EmailService;
 import com.marketplace.shared.exception.BusinessException;
 import com.marketplace.shared.exception.ResourceNotFoundException;
 import com.marketplace.user.dto.ChangePasswordRequest;
 import com.marketplace.user.dto.UpdateProfileRequest;
 import com.marketplace.user.dto.UserResponse;
 import com.marketplace.user.model.User;
+import com.marketplace.user.repository.RefreshTokenRepository;
 import com.marketplace.user.repository.UserRepository;
 import java.time.Instant;
 import java.util.Optional;
@@ -31,6 +33,12 @@ class UserServiceTest {
 
 	@Mock
 	private PasswordEncoder passwordEncoder;
+
+	@Mock
+	private RefreshTokenRepository refreshTokenRepository;
+
+	@Mock
+	private EmailService emailService;
 
 	@InjectMocks
 	private UserService userService;
@@ -144,6 +152,7 @@ class UserServiceTest {
 		User user = createTestUser();
 		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
 		when(passwordEncoder.matches("oldpassword", "encoded_password")).thenReturn(true);
+		when(passwordEncoder.matches("newpassword", "encoded_password")).thenReturn(false);
 		when(passwordEncoder.encode("newpassword")).thenReturn("new_encoded_password");
 		when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -153,6 +162,8 @@ class UserServiceTest {
 
 		assertThat(user.getPasswordHash()).isEqualTo("new_encoded_password");
 		verify(userRepository).save(user);
+		verify(refreshTokenRepository).deleteByUserId(user.getId());
+		verify(emailService).sendPasswordChangeNotification(user.getEmail());
 	}
 
 	@Test
@@ -212,6 +223,33 @@ class UserServiceTest {
 
 		assertThatThrownBy(() -> userService.changePassword(randomId.toString(), request))
 				.isInstanceOf(ResourceNotFoundException.class);
+	}
+
+	@Test
+	void changePassword_oidcUser_throwsBusinessException() {
+		User user = createTestUser();
+		user.setAuthenticationType(User.AuthenticationType.OIDC);
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+
+		ChangePasswordRequest request = new ChangePasswordRequest("oldpassword", "NewPass1!");
+
+		assertThatThrownBy(() -> userService.changePassword(user.getId().toString(), request))
+				.isInstanceOf(BusinessException.class)
+				.hasMessage("Password change is not available for Google sign-in accounts");
+	}
+
+	@Test
+	void changePassword_samePassword_throwsBusinessException() {
+		User user = createTestUser();
+		when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+		when(passwordEncoder.matches("oldpassword", "encoded_password")).thenReturn(true);
+		when(passwordEncoder.matches("oldpassword", "encoded_password")).thenReturn(true);
+
+		ChangePasswordRequest request = new ChangePasswordRequest("oldpassword", "oldpassword");
+
+		assertThatThrownBy(() -> userService.changePassword(user.getId().toString(), request))
+				.isInstanceOf(BusinessException.class)
+				.hasMessage("New password must be different from current password");
 	}
 
 	// ==================== USER MODEL - BINARY VARIABLES ====================

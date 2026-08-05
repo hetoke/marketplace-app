@@ -199,14 +199,13 @@ class AuthServiceTest {
 	// --- Email: duplicate check ---
 
 	@Test
-	void register_duplicateEmail_throwsBusinessException() {
+	void register_duplicateEmail_returnsNull() {
 		RegisterRequest request = new RegisterRequest("test@test.com", "password123", "Test User", User.Role.BUYER);
 		when(userRepository.existsByEmail("test@test.com")).thenReturn(true);
 
-		assertThatThrownBy(() -> authService.register(request))
-				.isInstanceOf(BusinessException.class)
-				.hasMessage("Email already registered");
+		UserResponse response = authService.register(request);
 
+		assertThat(response).isNull();
 		verify(userRepository, never()).save(any());
 	}
 
