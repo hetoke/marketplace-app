@@ -11,6 +11,7 @@ public class RateLimitProperties {
 	private EndpointLimit payments = new EndpointLimit(10, 10, 1);
 	private EndpointLimit reviews = new EndpointLimit(10, 10, 1);
 	private EndpointLimit uploads = new EndpointLimit(5, 5, 1);
+	private EndpointLimit password = new EndpointLimit(5, 5, 1);
 
 	public boolean isEnabled() { return enabled; }
 	public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -24,6 +25,8 @@ public class RateLimitProperties {
 	public void setReviews(EndpointLimit reviews) { this.reviews = reviews; }
 	public EndpointLimit getUploads() { return uploads; }
 	public void setUploads(EndpointLimit uploads) { this.uploads = uploads; }
+	public EndpointLimit getPassword() { return password; }
+	public void setPassword(EndpointLimit password) { this.password = password; }
 
 	public static class EndpointLimit {
 		private long capacity;

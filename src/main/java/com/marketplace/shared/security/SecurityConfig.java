@@ -2,6 +2,7 @@ package com.marketplace.shared.security;
 
 import com.marketplace.shared.filter.RateLimitFilter;
 import java.util.List;
+import org.springframework.lang.Nullable;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,7 +35,7 @@ public class SecurityConfig {
 
 	public SecurityConfig(CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
 			CustomAccessDeniedHandler customAccessDeniedHandler,
-			RateLimitFilter rateLimitFilter,
+			@Nullable RateLimitFilter rateLimitFilter,
 			JwtTokenProvider jwtTokenProvider,
 			CustomUserDetailsService customUserDetailsService) {
 		this.customAuthenticationEntryPoint = customAuthenticationEntryPoint;
@@ -49,7 +50,7 @@ public class SecurityConfig {
 		JwtSecurityContextRepository jwtContextRepository =
 				new JwtSecurityContextRepository(jwtTokenProvider, customUserDetailsService);
 
-		return http
+		http
 				.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 				.csrf(AbstractHttpConfigurer::disable)
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -63,12 +64,16 @@ public class SecurityConfig {
 						.requestMatchers(HttpMethod.GET, "/api/v1/sellers/**").permitAll()
 						.anyRequest().authenticated()
 				)
-				.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
 				.exceptionHandling(exception -> exception
 						.authenticationEntryPoint(customAuthenticationEntryPoint)
 						.accessDeniedHandler(customAccessDeniedHandler)
-				)
-				.build();
+				);
+
+		if (rateLimitFilter != null) {
+			http.addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
+		}
+
+		return http.build();
 	}
 
 	@Bean

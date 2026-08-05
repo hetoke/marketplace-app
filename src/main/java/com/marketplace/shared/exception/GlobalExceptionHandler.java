@@ -67,6 +67,20 @@ public class GlobalExceptionHandler {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
 	}
 
+	@ExceptionHandler(org.springframework.security.authorization.AuthorizationDeniedException.class)
+	public ResponseEntity<ErrorResponse> handleAuthorizationDenied(
+			org.springframework.security.authorization.AuthorizationDeniedException ex,
+			HttpServletRequest request) {
+		ErrorResponse body = ErrorResponse.builder()
+				.status(HttpStatus.FORBIDDEN.value())
+				.error(HttpStatus.FORBIDDEN.getReasonPhrase())
+				.message("Access denied")
+				.path(request.getRequestURI())
+				.timestamp(Instant.now())
+				.build();
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+	}
+
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest request) {
 		List<ErrorResponse.FieldError> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
