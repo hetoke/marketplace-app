@@ -2,6 +2,7 @@ package com.marketplace.shared.config;
 
 import java.time.Duration;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -16,6 +17,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 @EnableCaching
+@ConditionalOnProperty(name = "app.cache.enabled", havingValue = "true", matchIfMissing = true)
 public class CacheConfig {
 
     private static final String CACHE_PRODUCTS = "products";
