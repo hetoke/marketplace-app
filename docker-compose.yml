@@ -16,36 +16,11 @@ services:
       - "8080"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
     environment:
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-marketplace}
-      DB_USERNAME: ${DB_USERNAME:-marketplace}
-      DB_PASSWORD: ${DB_PASSWORD:-marketplace}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
-      SUPABASE_PROJECT_URL: ${SUPABASE_PROJECT_URL:-}
-      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-}
-      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
-      SUPABASE_BUCKET_NAME: ${SUPABASE_BUCKET_NAME:-marketplace-images}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@marketplace.com}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin123!}
-      SEPAY_MERCHANT_ID: ${SEPAY_MERCHANT_ID:-}
-      SEPAY_SECRET_KEY: ${SEPAY_SECRET_KEY:-}
-      SEPAY_WEBHOOK_SECRET: ${SEPAY_WEBHOOK_SECRET:-}
-      SEPAY_ENVIRONMENT: ${SEPAY_ENVIRONMENT:-sandbox}
-      SEPAY_SUCCESS_URL: ${SEPAY_SUCCESS_URL:-http://localhost:3000/orders/{orderId}?payment=success}
-      SEPAY_ERROR_URL: ${SEPAY_ERROR_URL:-http://localhost:3000/orders/{orderId}?payment=error}
-      SEPAY_CANCEL_URL: ${SEPAY_CANCEL_URL:-http://localhost:3000/orders/{orderId}?payment=cancelled}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
-      MAIL_PORT: ${MAIL_PORT:-587}
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_FROM: ${MAIL_FROM:-noreply@marketplace.com}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
@@ -72,14 +47,16 @@ services:
     image: postgres:16-alpine
     ports:
       - "5432:5432"
+    env_file:
+      - .env
     environment:
-      POSTGRES_DB: ${DB_NAME:-marketplace}
-      POSTGRES_USER: ${DB_USERNAME:-marketplace}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-marketplace}
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-marketplace} -d ${DB_NAME:-marketplace}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5

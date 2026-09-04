@@ -5,7 +5,6 @@ import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SecurityException;
 import java.util.Date;
@@ -26,12 +25,9 @@ public class JwtTokenProvider {
 
 	public JwtTokenProvider(JwtProperties jwtProperties) {
 		this.jwtProperties = jwtProperties;
-		this.accessKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-				java.util.Base64.getEncoder().encodeToString(jwtProperties.getAccessSecret().getBytes())));
-		this.refreshKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-				java.util.Base64.getEncoder().encodeToString(jwtProperties.getRefreshSecret().getBytes())));
-		this.mfaKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(
-				java.util.Base64.getEncoder().encodeToString((jwtProperties.getRefreshSecret() + "-mfa").getBytes())));
+		this.accessKey = Keys.hmacShaKeyFor(jwtProperties.getAccessSecret().getBytes());
+		this.refreshKey = Keys.hmacShaKeyFor(jwtProperties.getRefreshSecret().getBytes());
+		this.mfaKey = Keys.hmacShaKeyFor((jwtProperties.getRefreshSecret() + "-mfa").getBytes());
 	}
 
 	public String generateAccessToken(String userId, String email, String role) {
